@@ -152,12 +152,43 @@ export default function Dashboard({ user }) {
   }
 
   const saveIncome = async () => {
-    const { error } = await supabase.from('receitas').upsert({
-      user_id: user.id, month,
-      salary: income.salary, vtvr: income.vtvr, commission: income.commission
-    }, { onConflict: 'user_id,month' })
-    if (error) notify('Erro ao salvar receitas', 'error')
-    else { notify('Receitas salvas!', 'success'); setShowIncome(false) }
+    const payload = {
+      salary: Number(income.salary) || 0,
+      vtvr: Number(income.vtvr) || 0,
+      commission: Number(income.commission) || 0
+    }
+
+    // Check if record already exists
+    const { data: existing } = await supabase
+      .from('receitas')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('month', month)
+      .single()
+
+    let error
+    if (existing) {
+      // UPDATE existing record
+      const res = await supabase
+        .from('receitas')
+        .update(payload)
+        .eq('user_id', user.id)
+        .eq('month', month)
+      error = res.error
+    } else {
+      // INSERT new record
+      const res = await supabase
+        .from('receitas')
+        .insert({ user_id: user.id, month, ...payload })
+      error = res.error
+    }
+
+    if (error) notify('Erro ao salvar receitas: ' + error.message, 'error')
+    else {
+      notify('Receitas salvas!', 'success')
+      setShowIncome(false)
+      loadIncome()
+    }
   }
 
   const signOut = async () => { await supabase.auth.signOut() }
