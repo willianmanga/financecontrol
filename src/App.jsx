@@ -9,9 +9,13 @@ export default function App() {
   const [emailConfirmed, setEmailConfirmed] = useState(false)
 
   useEffect(() => {
-    // Detecta retorno do link de confirmação de e-mail
+    // Verifica se é confirmação de e-mail (type=signup) mas NÃO login do Google
     const hash = window.location.hash
-    if (hash && (hash.includes('type=signup') || hash.includes('access_token'))) {
+    const isEmailConfirm = hash.includes('type=signup')
+    const isGoogleLogin = hash.includes('type=recovery') || 
+                          (hash.includes('access_token') && !hash.includes('type=signup'))
+
+    if (isEmailConfirm) {
       setEmailConfirmed(true)
       window.history.replaceState(null, '', window.location.pathname)
     }
@@ -22,7 +26,13 @@ export default function App() {
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session)
+      // SIGNED_IN via Google — vai direto pro dashboard
+      if (event === 'SIGNED_IN') {
+        setEmailConfirmed(false) // garante que não trava na tela de confirmação
+        setSession(session)
+      } else {
+        setSession(session)
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -40,6 +50,7 @@ export default function App() {
     )
   }
 
+  // Só mostra tela de confirmação se for e-mail E não tiver sessão ativa
   if (emailConfirmed && !session) {
     return (
       <div style={{ minHeight: '100vh', background: '#070b14', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif" }}>
