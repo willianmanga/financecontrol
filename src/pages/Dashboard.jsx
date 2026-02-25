@@ -155,7 +155,7 @@ export default function Dashboard({ user }) {
   const [filterCat, setFilterCat] = useState('Todos')
   const [showAdd, setShowAdd] = useState(false)
   const [showIncome, setShowIncome] = useState(false)
-  const [newE, setNewE] = useState({ name: '', value: '', category: 'Cartão' })
+  const [newE, setNewE] = useState({ name: '', value: '', category: 'Cart00e3o', parcelas: '1' })
   const [selHistory, setSelHistory] = useState(null)
   const [month, setMonth] = useState(curMonth())
 
@@ -226,12 +226,50 @@ export default function Dashboard({ user }) {
 
   const addExpense = async () => {
     if (!newE.name.trim() || !newE.value || isNaN(parseFloat(newE.value))) { notify('Preencha nome e valor', 'error'); return }
-    notify('Salvando...', 'loading', 1500)
-    const { data, error } = await supabase.from('despesas').insert({ user_id: user.id, name: newE.name.toUpperCase().trim(), value: parseFloat(newE.value), paid: false, category: newE.category, month }).select().single()
-    if (error) { notify('Erro ao adicionar', 'error'); return }
-    setExpenses(prev => [data, ...prev])
-    setNewE({ name: '', value: '', category: 'Cartão' }); setShowAdd(false)
-    notify('Despesa adicionada!', 'success'); loadHistory()
+    const parcelas = Math.max(1, Math.min(60, parseInt(newE.parcelas) || 1))
+    const valorParcela = parseFloat(newE.value)
+    const nomeParcela = newE.name.toUpperCase().trim()
+
+    if (parcelas === 1) {
+      // Despesa simples — comportamento original
+      notify('Salvando...', 'loading', 1500)
+      const { data, error } = await supabase.from('despesas').insert({
+        user_id: user.id, name: nomeParcela, value: valorParcela,
+        paid: false, category: newE.category, month,
+        parcela_atual: null, parcelas_total: null, parcela_grupo: null
+      }).select().single()
+      if (error) { notify('Erro ao adicionar', 'error'); return }
+      setExpenses(prev => [data, ...prev])
+    } else {
+      // Parcelado — cria uma linha por mês
+      notify(`Criando ${parcelas} parcelas...`, 'loading', 2500)
+      const grupo = `${nomeParcela}_${Date.now()}`
+      const rows = []
+      const [mesAtual, anoAtual] = month.split('/').map(Number)
+      for (let i = 0; i < parcelas; i++) {
+        const d = new Date(anoAtual, mesAtual - 1 + i, 1)
+        const m = `${String(d.getMonth() + 1).padStart(2,'0')}/${d.getFullYear()}`
+        rows.push({
+          user_id: user.id,
+          name: `${nomeParcela} (${i+1}/${parcelas})`,
+          value: valorParcela,
+          paid: false,
+          category: newE.category,
+          month: m,
+          parcela_atual: i + 1,
+          parcelas_total: parcelas,
+          parcela_grupo: grupo
+        })
+      }
+      const { error } = await supabase.from('despesas').insert(rows)
+      if (error) { notify('Erro ao criar parcelas', 'error'); return }
+      notify(`${parcelas} parcelas criadas!`, 'success')
+    }
+
+    setNewE({ name: '', value: '', category: 'Cartão', parcelas: '1' })
+    setShowAdd(false)
+    loadExpenses()
+    loadHistory()
   }
 
   const removeExpense = async (id) => {
@@ -490,20 +528,38 @@ export default function Dashboard({ user }) {
             </div>
 
             {showAdd && (
-              <div style={{ ...G.sec('rgba(99,102,241,0.2)'), display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, background: isDark ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.04)', marginBottom: 14 }}>
-                {[['Descrição', 'text', 'name'], ['Valor (R$)', 'number', 'value']].map(([lb, tp, key]) => (
-                  <div key={key}>
-                    <div style={{ fontSize: 9, color: T.textMuted, marginBottom: 6, fontFamily: 'monospace', letterSpacing: '1px' }}>{lb.toUpperCase()}</div>
-                    <input style={G.inp} type={tp} placeholder={key === 'name' ? 'Nome da despesa' : '0,00'} value={newE[key]} onChange={e => setNewE(p => ({ ...p, [key]: e.target.value }))} onKeyDown={e => e.key === 'Enter' && addExpense()} />
+              <div style={{ ...G.sec('rgba(99,102,241,0.2)'), background: isDark ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.04)', marginBottom: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 12, marginBottom: parseInt(newE.parcelas) > 1 ? 12 : 0 }}>
+                  <div>
+                    <div style={{ fontSize: 9, color: T.textMuted, marginBottom: 6, fontFamily: 'monospace', letterSpacing: '1px' }}>DESCRIÇÃO</div>
+                    <input style={G.inp} type="text" placeholder="Nome da despesa" value={newE.name} onChange={e => setNewE(p => ({ ...p, name: e.target.value }))} onKeyDown={e => e.key === 'Enter' && addExpense()} />
                   </div>
-                ))}
-                <div>
-                  <div style={{ fontSize: 9, color: T.textMuted, marginBottom: 6, fontFamily: 'monospace', letterSpacing: '1px' }}>CATEGORIA</div>
-                  <select style={{ ...G.inp, cursor: 'pointer' }} value={newE.category} onChange={e => setNewE(p => ({ ...p, category: e.target.value }))}>
-                    {CATS.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <div>
+                    <div style={{ fontSize: 9, color: T.textMuted, marginBottom: 6, fontFamily: 'monospace', letterSpacing: '1px' }}>VALOR (R$)</div>
+                    <input style={G.inp} type="number" placeholder="0,00" value={newE.value} onChange={e => setNewE(p => ({ ...p, value: e.target.value }))} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: T.textMuted, marginBottom: 6, fontFamily: 'monospace', letterSpacing: '1px' }}>PARCELAS</div>
+                    <input style={G.inp} type="number" min="1" max="60" placeholder="1" value={newE.parcelas} onChange={e => setNewE(p => ({ ...p, parcelas: e.target.value }))} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: T.textMuted, marginBottom: 6, fontFamily: 'monospace', letterSpacing: '1px' }}>CATEGORIA</div>
+                    <select style={{ ...G.inp, cursor: 'pointer' }} value={newE.category} onChange={e => setNewE(p => ({ ...p, category: e.target.value }))}>
+                      {CATS.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <button style={{ ...G.btn('linear-gradient(135deg,#10b981,#059669)'), alignSelf: 'flex-end', boxShadow: '0 4px 14px rgba(16,185,129,0.3)', whiteSpace: 'nowrap' }} onClick={addExpense}>
+                    {parseInt(newE.parcelas) > 1 ? `Criar ${newE.parcelas}x ✓` : 'Salvar ✓'}
+                  </button>
                 </div>
-                <button style={{ ...G.btn('linear-gradient(135deg,#10b981,#059669)'), alignSelf: 'flex-end', boxShadow: '0 4px 14px rgba(16,185,129,0.3)' }} onClick={addExpense}>Salvar ✓</button>
+                {parseInt(newE.parcelas) > 1 && newE.value && (
+                  <div style={{ background: isDark ? 'rgba(245,158,11,0.08)' : 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span>📅</span>
+                    <span>
+                      <strong>{newE.parcelas}x</strong> de <strong>R$ {parseFloat(newE.value || 0).toFixed(2).replace('.', ',')}</strong> — parcelas serão criadas automaticamente nos próximos {newE.parcelas} meses e desaparecerão conforme forem pagas no último mês
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -521,7 +577,14 @@ export default function Dashboard({ user }) {
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 3 }}>{e.name}</div>
-                      <span style={G.pill(CAT_COLORS[e.category] || '#94a3b8')}>{e.category}</span>
+                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={G.pill(CAT_COLORS[e.category] || '#94a3b8')}>{e.category}</span>
+                        {e.parcelas_total > 1 && (
+                          <span style={{ background: 'rgba(139,92,246,0.15)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)', padding: '2px 7px', borderRadius: 20, fontSize: 9, fontWeight: 700, fontFamily: 'monospace' }}>
+                            📅 {e.parcela_atual}/{e.parcelas_total}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'monospace', color: e.paid ? '#10b981' : '#f43f5e' }}>{fmt(e.value)}</div>
                     <span style={{ ...G.pill(e.paid ? '#10b981' : '#f43f5e'), margin: '0 8px', fontSize: 9 }}>{e.paid ? 'PAGO' : 'PENDENTE'}</span>
