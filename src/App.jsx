@@ -26,7 +26,7 @@ function ResetPasswordPage({ onDone }) {
   }
 
   return (
-    <div style={{ minHeight:'100vh', background:'#070b14', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Inter',sans-serif", padding:20 }}>
+    <div style={{ minHeight:'100vh', background:'#050810', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Outfit',sans-serif", padding:20 }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} *{box-sizing:border-box} input:focus{border-color:rgba(99,102,241,0.6)!important;box-shadow:0 0 0 3px rgba(99,102,241,0.12)!important;outline:none}`}</style>
       <div style={{ background:'rgba(10,14,26,0.97)', border:'1px solid rgba(99,102,241,0.25)', borderRadius:20, padding:'38px', width:'100%', maxWidth:400, boxShadow:'0 32px 80px rgba(0,0,0,0.5)' }}>
         <div style={{ textAlign:'center', marginBottom:28 }}>
@@ -124,7 +124,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div style={{ minHeight:'100vh', background:'#070b14', display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ minHeight:'100vh', background:'#050810', display:'flex', alignItems:'center', justifyContent:'center' }}>
         <div style={{ textAlign:'center' }}>
           <div style={{ fontSize:32, marginBottom:16 }}>💰</div>
           <div style={{ width:28, height:28, border:'2px solid #1e293b', borderTopColor:'#6366f1', borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto' }}/>
@@ -140,7 +140,7 @@ export default function App() {
 
   if (emailConfirmed && !session) {
     return (
-      <div style={{ minHeight:'100vh', background:'#070b14', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Inter',sans-serif" }}>
+      <div style={{ minHeight:'100vh', background:'#050810', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Outfit',sans-serif" }}>
         <div style={{ background:'rgba(10,14,26,0.97)', border:'1px solid rgba(16,185,129,0.3)', borderRadius:20, padding:'40px', textAlign:'center', maxWidth:380, boxShadow:'0 24px 80px rgba(16,185,129,0.1)' }}>
           <div style={{ fontSize:48, marginBottom:16 }}>✅</div>
           <div style={{ fontSize:20, fontWeight:800, color:'#e2e8f0', marginBottom:8 }}>E-mail confirmado!</div>
