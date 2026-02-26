@@ -20,7 +20,7 @@ export default function AuthPage() {
   const { theme, setTheme, isDark } = useTheme()
 
   const T = isDark ? {
-    bg: '#070b14', card: 'rgba(10,14,26,0.97)', cardBorder: 'rgba(99,102,241,0.2)',
+    bg: '#050810', card: 'rgba(10,14,26,0.97)', cardBorder: 'rgba(99,102,241,0.25)',
     text: '#e2e8f0', textMuted: '#475569', textFaint: '#2d3f5a',
     inputBg: 'rgba(255,255,255,0.05)', inputBorder: 'rgba(255,255,255,0.08)',
     tabBg: 'rgba(255,255,255,0.04)', tabBorder: 'rgba(255,255,255,0.06)',
@@ -78,9 +78,9 @@ export default function AuthPage() {
   const THEMES = [['dark', '🌙', 'Escuro'], ['light', '☀️', 'Claro'], ['system', '💻', 'Sistema']]
 
   return (
-    <div style={{ minHeight: '100vh', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter','DM Sans',sans-serif", padding: 20, position: 'relative', overflow: 'hidden', transition: 'background .3s' }}>
+    <div style={{ minHeight: '100vh', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Outfit',sans-serif", padding: 20, position: 'relative', overflow: 'hidden', transition: 'background .3s' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
         *{box-sizing:border-box}
@@ -106,8 +106,8 @@ export default function AuthPage() {
         {/* Logo */}
         <div style={{ textAlign:'center',marginBottom:20 }}>
           <div style={{ width:56,height:56,borderRadius:16,background:'linear-gradient(135deg,#6366f1,#8b5cf6)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,margin:'0 auto 14px',boxShadow:'0 8px 24px rgba(99,102,241,0.4)',animation:'float 4s ease-in-out infinite' }}>💰</div>
-          <div style={{ fontSize:22,fontWeight:800,letterSpacing:'-0.5px',color:T.text,marginBottom:4 }}>FinanceControl</div>
-          <div style={{ fontSize:11,color:T.textMuted,fontFamily:'monospace' }}>CONTROLE FINANCEIRO PESSOAL</div>
+          <div style={{ fontSize:22,fontWeight:800,letterSpacing:'-0.5px',color:T.text,marginBottom:4 }}>Finly</div>
+          <div style={{ fontSize:11,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace" }}>YOUR MONEY. YOUR CONTROL.</div>
         </div>
 
         {/* Tabs — só mostra quando não está no modo forgot */}
@@ -137,17 +137,17 @@ export default function AuthPage() {
         <form onSubmit={handleSubmit}>
           {mode === 'register' && (
             <div style={{ marginBottom:14 }}>
-              <label style={{ fontSize:10,letterSpacing:'1.5px',color:T.textMuted,fontFamily:'monospace',display:'block',marginBottom:7 }}>NOME</label>
+              <label style={{ fontSize:10,letterSpacing:'1.5px',color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",display:'block',marginBottom:7 }}>NOME</label>
               <input style={inp} type="text" placeholder="Seu nome" value={name} onChange={e => setName(e.target.value)} required />
             </div>
           )}
           <div style={{ marginBottom:14 }}>
-            <label style={{ fontSize:10,letterSpacing:'1.5px',color:T.textMuted,fontFamily:'monospace',display:'block',marginBottom:7 }}>E-MAIL</label>
+            <label style={{ fontSize:10,letterSpacing:'1.5px',color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",display:'block',marginBottom:7 }}>E-MAIL</label>
             <input style={inp} type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required />
           </div>
           {mode !== 'forgot' && (
             <div style={{ marginBottom: mode === 'login' ? 6 : 18 }}>
-              <label style={{ fontSize:10,letterSpacing:'1.5px',color:T.textMuted,fontFamily:'monospace',display:'block',marginBottom:7 }}>SENHA</label>
+              <label style={{ fontSize:10,letterSpacing:'1.5px',color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",display:'block',marginBottom:7 }}>SENHA</label>
               <input style={inp} type="password" placeholder={mode === 'register' ? 'Mínimo 6 caracteres' : '••••••••'} value={password} onChange={e => setPassword(e.target.value)} required />
             </div>
           )}
@@ -190,7 +190,7 @@ export default function AuthPage() {
           <>
             <div style={{ display:'flex',alignItems:'center',gap:12,margin:'20px 0 16px' }}>
               <div style={{ flex:1,height:1,background:T.divider }} />
-              <span style={{ fontSize:11,color:T.textFaint,fontFamily:'monospace' }}>ou</span>
+              <span style={{ fontSize:11,color:T.textFaint,fontFamily:"'JetBrains Mono',monospace" }}>ou</span>
               <div style={{ flex:1,height:1,background:T.divider }} />
             </div>
             <button onClick={handleGoogle}
@@ -208,8 +208,8 @@ export default function AuthPage() {
           </>
         )}
 
-        <div style={{ textAlign:'center',marginTop:20,fontSize:10,color:T.textFaint,fontFamily:'monospace' }}>
-          🔒 Seus dados são privados · cada usuário vê apenas as suas despesas
+        <div style={{ textAlign:'center',marginTop:20,fontSize:10,color:T.textFaint,fontFamily:"'JetBrains Mono',monospace" }}>
+          🔒 dados criptografados · privacidade garantida
         </div>
       </div>
     </div>
