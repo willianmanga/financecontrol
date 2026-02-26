@@ -6,7 +6,14 @@ const CAT_COLORS = { 'Cartão':'#f43f5e','Banco':'#3b82f6','Serviços':'#a78bfa'
 const CATS = Object.keys(CAT_COLORS)
 const fmt = v => 'R$ ' + Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
 const fmtK = v => 'R$'+(v/1000).toFixed(1).replace('.',',')+' k'
-const curMonth = () => { const d=new Date(); return `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` }
+const curMonth = () => {
+  const d = new Date()
+  // Exceção: fevereiro/2026 abre em março pois o app foi lançado no fim do mês
+  if (d.getMonth() === 1 && d.getFullYear() === 2026) {
+    return '03/2026'
+  }
+  return `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+}
 const monthLabel = m => { if(!m)return''; const[mo,yr]=m.split('/'); const n=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']; return`${n[parseInt(mo)-1]}/${yr.slice(2)}` }
 
 /* ── TEMA ── */
@@ -16,9 +23,9 @@ function useTheme() {
   const sysDark = typeof window!=='undefined'&&window.matchMedia?.('(prefers-color-scheme: dark)').matches
   const isDark = mode==='dark'||(mode==='system'&&sysDark)
   const T = isDark ? {
-    bg:'#070b14',bgCard:'rgba(10,14,26,0.95)',border:'rgba(255,255,255,0.07)',
+    bg:'#050810',bgCard:'rgba(8,12,24,0.97)',border:'rgba(99,102,241,0.12)',
     text:'#e2e8f0',textMuted:'#475569',textFaint:'#1e293b',
-    sidebar:'rgba(8,11,22,0.98)',input:'rgba(255,255,255,0.05)',inputBorder:'rgba(255,255,255,0.08)',
+    sidebar:'rgba(5,8,16,0.99)',input:'rgba(99,102,241,0.06)',inputBorder:'rgba(99,102,241,0.15)',
     expPaid:'rgba(16,185,129,0.06)',expPaidBorder:'rgba(16,185,129,0.18)',
     expPending:'rgba(244,63,94,0.05)',expPendingBorder:'rgba(244,63,94,0.15)',
     chartGrid:'rgba(255,255,255,0.04)',glass:'rgba(255,255,255,0.02)',scrollbar:'#1e293b',isDark:true,
@@ -71,8 +78,8 @@ const CTip=({active,payload,label,isDark})=>{
   if(!active||!payload?.length)return null
   return (
     <div style={{background:isDark?'rgba(7,11,20,0.97)':'rgba(255,255,255,0.97)',border:'1px solid rgba(99,102,241,0.2)',borderRadius:12,padding:'10px 14px',boxShadow:'0 8px 32px rgba(0,0,0,0.25)'}}>
-      {label&&<p style={{color:'#64748b',fontSize:11,marginBottom:5,fontFamily:'monospace'}}>{label}</p>}
-      {payload.map((p,i)=><p key={i} style={{color:p.color||p.fill,fontWeight:700,fontSize:12,margin:'2px 0',fontFamily:'monospace'}}>{p.name}: {fmt(p.value)}</p>)}
+      {label&&<p style={{color:'#64748b',fontSize:11,marginBottom:5,fontFamily:"'JetBrains Mono',monospace"}}>{label}</p>}
+      {payload.map((p,i)=><p key={i} style={{color:p.color||p.fill,fontWeight:700,fontSize:12,margin:'2px 0',fontFamily:"'JetBrains Mono',monospace"}}>{p.name}: {fmt(p.value)}</p>)}
     </div>
   )
 }
@@ -106,9 +113,9 @@ function StatCard({label,value,sub,color,borderColor,icon,T}) {
   return (
     <div style={{background:T.bgCard,border:`1px solid ${h?borderColor:T.border}`,borderRadius:16,padding:'16px 18px',position:'relative',overflow:'hidden',borderTop:`2px solid ${color}`,transition:'all .2s',transform:h?'translateY(-2px)':'none',boxShadow:h?`0 8px 32px ${color}15`:'none'}}
       onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}>
-      <div style={{fontSize:9,letterSpacing:'2px',color:T.textMuted,fontFamily:'monospace',textTransform:'uppercase',marginBottom:7}}>{label}</div>
+      <div style={{fontSize:9,letterSpacing:'2px',color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",textTransform:'uppercase',marginBottom:7}}>{label}</div>
       <div style={{fontSize:19,fontWeight:800,color,letterSpacing:'-0.5px'}}><AnimNum value={value}/></div>
-      <div style={{fontSize:10,color:T.textMuted,marginTop:4,fontFamily:'monospace'}}>{sub}</div>
+      <div style={{fontSize:10,color:T.textMuted,marginTop:4,fontFamily:"'JetBrains Mono',monospace"}}>{sub}</div>
       <div style={{position:'absolute',right:12,top:12,fontSize:20,opacity:0.08}}>{icon}</div>
       <div style={{position:'absolute',inset:0,background:`radial-gradient(circle at 80% 20%,${color}10,transparent 60%)`,pointerEvents:'none'}}/>
     </div>
@@ -139,15 +146,15 @@ function EditModal({expense,onSave,onClose,T,isDark}) {
           <button onClick={onClose} style={{background:'none',border:'none',color:T.textMuted,cursor:'pointer',fontSize:18,lineHeight:1}}>✕</button>
         </div>
         <div style={{marginBottom:14}}>
-          <div style={{fontSize:9,color:T.textMuted,marginBottom:6,fontFamily:'monospace',letterSpacing:'1px'}}>DESCRIÇÃO</div>
+          <div style={{fontSize:9,color:T.textMuted,marginBottom:6,fontFamily:"'JetBrains Mono',monospace",letterSpacing:'1px'}}>DESCRIÇÃO</div>
           <input style={inp} value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&save()}/>
         </div>
         <div style={{marginBottom:14}}>
-          <div style={{fontSize:9,color:T.textMuted,marginBottom:6,fontFamily:'monospace',letterSpacing:'1px'}}>VALOR (R$)</div>
+          <div style={{fontSize:9,color:T.textMuted,marginBottom:6,fontFamily:"'JetBrains Mono',monospace",letterSpacing:'1px'}}>VALOR (R$)</div>
           <input style={inp} type="number" value={value} onChange={e=>setValue(e.target.value)} onKeyDown={e=>e.key==='Enter'&&save()}/>
         </div>
         <div style={{marginBottom:22}}>
-          <div style={{fontSize:9,color:T.textMuted,marginBottom:6,fontFamily:'monospace',letterSpacing:'1px'}}>CATEGORIA</div>
+          <div style={{fontSize:9,color:T.textMuted,marginBottom:6,fontFamily:"'JetBrains Mono',monospace",letterSpacing:'1px'}}>CATEGORIA</div>
           <select style={{...inp,cursor:'pointer'}} value={category} onChange={e=>setCategory(e.target.value)}>
             {CATS.map(c=><option key={c} value={c}>{c}</option>)}
           </select>
@@ -172,11 +179,72 @@ function MobileNav({tab,setTab,T,isDark}) {
         <button key={k} onClick={()=>setTab(k)}
           style={{flex:1,padding:'10px 0 12px',border:'none',background:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3,color:tab===k?'#818cf8':T.textMuted,transition:'color .15s',fontFamily:'inherit'}}>
           <span style={{fontSize:18,lineHeight:1}}>{ic}</span>
-          <span style={{fontSize:9,fontWeight:700,fontFamily:'monospace'}}>{lb}</span>
+          <span style={{fontSize:9,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{lb}</span>
         </button>
       ))}
     </nav>
   )
+}
+
+
+/* ── BANNER DE ALERTAS ── */
+function AlertBanner({expenses, month, onGoToExpenses, T, isDark}) {
+  const [dismissed, setDismissed] = useState(false)
+  
+  const isCurrentMonth = month === curMonth()
+  const pending = expenses.filter(e => !e.paid)
+  const pendingTotal = pending.reduce((s,e) => s + Number(e.value), 0)
+  const allPaid = expenses.length > 0 && pending.length === 0
+  
+  if (dismissed || expenses.length === 0) return null
+  
+  // Mês atual com pendências
+  if (isCurrentMonth && pending.length > 0) {
+    const urgency = pending.length >= 5 || pendingTotal > 1000 ? 'high' : 'medium'
+    const color = urgency === 'high' ? '#f43f5e' : '#f59e0b'
+    const bg = urgency === 'high' 
+      ? (isDark ? 'rgba(244,63,94,0.08)' : 'rgba(244,63,94,0.05)')
+      : (isDark ? 'rgba(245,158,11,0.08)' : 'rgba(245,158,11,0.05)')
+    const border = urgency === 'high' ? 'rgba(244,63,94,0.25)' : 'rgba(245,158,11,0.25)'
+    
+    return (
+      <div style={{background:bg, border:`1px solid ${border}`, borderRadius:14, padding:'14px 16px', marginBottom:16, display:'flex', alignItems:'center', gap:12, animation:'fadeUp .3s ease'}}>
+        <div style={{fontSize:22, flexShrink:0}}>{urgency==='high'?'🚨':'⚠️'}</div>
+        <div style={{flex:1, minWidth:0}}>
+          <div style={{fontSize:13, fontWeight:800, color, marginBottom:2}}>
+            {pending.length} {pending.length===1?'despesa pendente':'despesas pendentes'} este mês
+          </div>
+          <div style={{fontSize:11, color:T.textMuted, fontFamily:"'JetBrains Mono',monospace"}}>
+            Falta pagar <strong style={{color}}>{pending.reduce((s,e)=>s+Number(e.value),0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong>
+            {pending.slice(0,2).map(e => ` · ${e.name.split(' ')[0]}`).join('')}{pending.length > 2 ? ` +${pending.length-2}` : ''}
+          </div>
+        </div>
+        <button onClick={onGoToExpenses}
+          style={{background:color+'22', border:`1px solid ${color}44`, borderRadius:8, color, padding:'6px 12px', fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'inherit', flexShrink:0, whiteSpace:'nowrap'}}>
+          Ver →
+        </button>
+        <button onClick={()=>setDismissed(true)}
+          style={{background:'none', border:'none', color:T.textMuted, cursor:'pointer', fontSize:16, padding:'0 2px', flexShrink:0, lineHeight:1}}>✕</button>
+      </div>
+    )
+  }
+
+  // Mês atual com tudo pago
+  if (isCurrentMonth && allPaid) {
+    return (
+      <div style={{background:isDark?'rgba(16,185,129,0.08)':'rgba(16,185,129,0.05)', border:'1px solid rgba(16,185,129,0.25)', borderRadius:14, padding:'14px 16px', marginBottom:16, display:'flex', alignItems:'center', gap:12, animation:'fadeUp .3s ease'}}>
+        <div style={{fontSize:22}}>🎉</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13, fontWeight:800, color:'#10b981', marginBottom:2}}>Tudo pago este mês!</div>
+          <div style={{fontSize:11, color:T.textMuted, fontFamily:"'JetBrains Mono',monospace"}}>Parabéns, você está em dia com todas as despesas.</div>
+        </div>
+        <button onClick={()=>setDismissed(true)}
+          style={{background:'none', border:'none', color:T.textMuted, cursor:'pointer', fontSize:16, padding:'0 2px', lineHeight:1}}>✕</button>
+      </div>
+    )
+  }
+
+  return null
 }
 
 /* ── DASHBOARD ── */
@@ -326,16 +394,16 @@ export default function Dashboard({user}) {
 
   /* ── STYLES ── */
   const G = {
-    app:{ minHeight:'100vh',background:T.bg,color:T.text,fontFamily:"'Inter','DM Sans',sans-serif",display:'flex',transition:'background .3s,color .3s' },
+    app:{ minHeight:'100vh',background:T.bg,color:T.text,fontFamily:"'Outfit',sans-serif",display:'flex',transition:'background .3s,color .3s' },
     sidebar:{ width:214,background:T.sidebar,borderRight:`1px solid ${T.border}`,display:'flex',flexDirection:'column',position:'sticky',top:0,height:'100vh',flexShrink:0,transition:'background .3s' },
     main:{ flex:1,padding:isMobile?'16px 14px 80px':'28px 32px',overflowY:'auto',minHeight:'100vh' },
     nav:(a)=>({ display:'flex',alignItems:'center',gap:10,padding:'10px 18px',cursor:'pointer',fontSize:12,fontWeight:600,color:a?'#818cf8':T.textMuted,borderLeft:`3px solid ${a?'#6366f1':'transparent'}`,background:a?(isDark?'rgba(99,102,241,0.1)':'rgba(99,102,241,0.07)'):'transparent',transition:'all .15s' }),
     cards:{ display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(4,1fr)',gap:isMobile?10:14,marginBottom:18 },
     sec:(b)=>({ background:T.bgCard,border:`1px solid ${b||T.border}`,borderRadius:16,padding:isMobile?'14px':'20px',marginBottom:16,transition:'background .3s' }),
-    lbl:{ fontSize:9,letterSpacing:'2px',color:T.textMuted,fontFamily:'monospace',textTransform:'uppercase',marginBottom:12 },
+    lbl:{ fontSize:9,letterSpacing:'2px',color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",textTransform:'uppercase',marginBottom:12 },
     row:{ display:'flex',flexDirection:isMobile?'column':'row',gap:14,marginBottom:16 },
     expRow:(p)=>({ display:'flex',alignItems:'center',gap:10,padding:'11px 12px',borderRadius:12,cursor:'pointer',marginBottom:7,transition:'all .15s',background:p?T.expPaid:T.expPending,border:`1px solid ${p?T.expPaidBorder:T.expPendingBorder}` }),
-    pill:(c)=>({ background:c+'22',color:c,border:`1px solid ${c}44`,padding:'2px 7px',borderRadius:20,fontSize:9,fontWeight:700,fontFamily:'monospace',whiteSpace:'nowrap' }),
+    pill:(c)=>({ background:c+'22',color:c,border:`1px solid ${c}44`,padding:'2px 7px',borderRadius:20,fontSize:9,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",whiteSpace:'nowrap' }),
     inp:{ background:T.input,border:`1px solid ${T.inputBorder}`,borderRadius:10,color:T.text,padding:'10px 13px',fontSize:12,fontFamily:'inherit',outline:'none',width:'100%',boxSizing:'border-box',transition:'border-color .2s' },
     btn:(bg)=>({ background:bg,border:'none',borderRadius:10,color:'#fff',padding:'9px 16px',fontWeight:700,fontSize:12,cursor:'pointer',fontFamily:'inherit',transition:'all .15s' }),
     fBtn:(a,c)=>({ background:a?(c||'#6366f1')+'20':'transparent',border:`1px solid ${a?(c||'#6366f1')+'55':T.border}`,borderRadius:8,color:a?(c||'#818cf8'):T.textMuted,padding:'5px 11px',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all .15s' }),
@@ -346,38 +414,44 @@ export default function Dashboard({user}) {
   return (
     <div style={G.app}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-        @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+        @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
         @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
         *{box-sizing:border-box}
-        ::-webkit-scrollbar{width:5px;height:5px}
+        ::-webkit-scrollbar{width:4px;height:4px}
         ::-webkit-scrollbar-track{background:transparent}
-        ::-webkit-scrollbar-thumb{background:${T.scrollbar};border-radius:3px}
+        ::-webkit-scrollbar-thumb{background:rgba(99,102,241,0.3);border-radius:4px}
+        ::-webkit-scrollbar-thumb:hover{background:rgba(99,102,241,0.5)}
         input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
-        select option{background:${isDark?'#0d1117':'#fff'};color:${T.text}}
-        input:focus,select:focus{border-color:rgba(99,102,241,0.5)!important;box-shadow:0 0 0 3px rgba(99,102,241,0.1)!important}
+        select option{background:${isDark?'#080c18':'#fff'};color:${T.text}}
+        input:focus,select:focus{border-color:rgba(99,102,241,0.6)!important;box-shadow:0 0 0 3px rgba(99,102,241,0.12)!important}
+        button:active{transform:scale(0.97)}
       `}</style>
 
       {/* SIDEBAR — desktop only */}
       {!isMobile && (
         <nav style={G.sidebar}>
           <div style={{padding:'20px 16px 14px',borderBottom:`1px solid ${T.border}`}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
-              <div style={{width:34,height:34,borderRadius:10,background:'linear-gradient(135deg,#6366f1,#8b5cf6)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0,boxShadow:'0 4px 12px rgba(99,102,241,0.4)'}}>💰</div>
-              <div>
-                <div style={{fontSize:13,fontWeight:800,letterSpacing:'-0.3px'}}>FinanceControl</div>
-                <div style={{fontSize:9,color:T.textMuted,fontFamily:'monospace'}}>MULTI-USER</div>
+            <div style={{marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
+                <div style={{width:32,height:32,borderRadius:9,background:'linear-gradient(135deg,#6366f1,#818cf8)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 16px rgba(99,102,241,0.5)',position:'relative',overflow:'hidden'}}>
+                  <span style={{fontSize:15,fontWeight:900,color:'#fff',letterSpacing:'-1px',fontFamily:"'Outfit',sans-serif"}}>F</span>
+                  <div style={{position:'absolute',inset:0,background:'linear-gradient(135deg,transparent 40%,rgba(255,255,255,0.12))',pointerEvents:'none'}}/>
+                </div>
+                <div style={{fontSize:18,fontWeight:900,letterSpacing:'-0.5px',background:'linear-gradient(90deg,#e2e8f0,#818cf8)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>Finly</div>
               </div>
+              <div style={{fontSize:9,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:'2px'}}>PERSONAL FINANCE ✦</div>
             </div>
             <ThemeToggle mode={mode} setMode={setMode} isDark={isDark} T={T}/>
           </div>
           <div style={{padding:'12px 14px',borderBottom:`1px solid ${T.border}`}}>
-            <div style={{fontSize:9,letterSpacing:'1.5px',color:T.textMuted,fontFamily:'monospace',marginBottom:6}}>MÊS</div>
+            <div style={{fontSize:9,letterSpacing:'1.5px',color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",marginBottom:6}}>MÊS</div>
             <select value={month} onChange={e=>setMonth(e.target.value)} style={{...G.inp,padding:'7px 10px',fontSize:11}}>
               {monthOptions.map(o=><option key={o.val} value={o.val}>{o.label}</option>)}
             </select>
           </div>
-          <div style={{fontSize:9,letterSpacing:'2px',color:T.textFaint,padding:'12px 18px 4px',fontFamily:'monospace'}}>NAVEGAÇÃO</div>
+          <div style={{fontSize:9,letterSpacing:'2px',color:T.textFaint,padding:'12px 18px 4px',fontFamily:"'JetBrains Mono',monospace"}}>NAVEGAÇÃO</div>
           {TABS.map(([k,ic,lb])=>(
             <div key={k} style={G.nav(tab===k)} onClick={()=>setTab(k)}>
               <span style={{fontSize:14,opacity:tab===k?1:0.45}}>{ic}</span> {lb}
@@ -385,12 +459,12 @@ export default function Dashboard({user}) {
           ))}
           <div style={{marginTop:'auto',padding:'12px',borderTop:`1px solid ${T.border}`}}>
             <div style={{background:balance>=0?(isDark?'rgba(16,185,129,0.1)':'rgba(16,185,129,0.08)'):(isDark?'rgba(244,63,94,0.1)':'rgba(244,63,94,0.06)'),border:`1px solid ${balance>=0?'rgba(16,185,129,0.3)':'rgba(244,63,94,0.3)'}`,borderRadius:10,padding:'9px 12px',marginBottom:10}}>
-              <div style={{fontSize:9,color:balance>=0?'#6ee7b7':'#fda4af',fontWeight:700,fontFamily:'monospace'}}>{balance>=0?'✓ NO AZUL':'⚠ DÉFICIT'}</div>
-              <div style={{fontSize:14,fontWeight:800,color:balance>=0?'#10b981':'#f43f5e',marginTop:2,fontFamily:'monospace'}}>{fmt(Math.abs(balance))}</div>
+              <div style={{fontSize:9,color:balance>=0?'#6ee7b7':'#fda4af',fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{balance>=0?'✓ NO AZUL':'⚠ DÉFICIT'}</div>
+              <div style={{fontSize:14,fontWeight:800,color:balance>=0?'#10b981':'#f43f5e',marginTop:2,fontFamily:"'JetBrains Mono',monospace"}}>{fmt(Math.abs(balance))}</div>
             </div>
             <div style={{background:T.glass,border:`1px solid ${T.border}`,borderRadius:10,padding:'8px 11px',marginBottom:10}}>
               <div style={{fontSize:11,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{userName}</div>
-              <div style={{fontSize:9,color:T.textMuted,fontFamily:'monospace',marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{user.email}</div>
+              <div style={{fontSize:9,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{user.email}</div>
             </div>
             <button onClick={signOut} style={{...G.btn('transparent'),color:'#f43f5e',width:'100%',fontSize:11,border:'1px solid rgba(244,63,94,0.25)',padding:'8px'}}>Sair →</button>
           </div>
@@ -401,8 +475,10 @@ export default function Dashboard({user}) {
       {isMobile && (
         <div style={{position:'fixed',top:0,left:0,right:0,zIndex:200,background:isDark?'rgba(8,11,22,0.98)':'rgba(248,250,255,0.99)',borderBottom:`1px solid ${T.border}`,padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',backdropFilter:'blur(20px)'}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <div style={{width:30,height:30,borderRadius:8,background:'linear-gradient(135deg,#6366f1,#8b5cf6)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>💰</div>
-            <div style={{fontSize:13,fontWeight:800}}>FinanceControl</div>
+            <div style={{width:30,height:30,borderRadius:8,background:'linear-gradient(135deg,#6366f1,#818cf8)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 2px 10px rgba(99,102,241,0.4)'}}>
+              <span style={{fontSize:14,fontWeight:900,color:'#fff',fontFamily:"'Outfit',sans-serif"}}>F</span>
+            </div>
+            <div style={{fontSize:15,fontWeight:900,letterSpacing:'-0.5px',background:'linear-gradient(90deg,#e2e8f0,#818cf8)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>Finly</div>
           </div>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             <select value={month} onChange={e=>setMonth(e.target.value)}
@@ -423,7 +499,7 @@ export default function Dashboard({user}) {
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20,flexWrap:'wrap',gap:10}}>
               <div>
                 <div style={{fontSize:isMobile?20:24,fontWeight:800,letterSpacing:'-1px',marginBottom:3}}>Olá, {userName.split(' ')[0]} 👋</div>
-                <div style={{fontSize:11,color:T.textMuted,fontFamily:'monospace'}}>{monthLabel(month)} · {expenses.length} despesas</div>
+                <div style={{fontSize:11,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace"}}>{monthLabel(month)} · {expenses.length} despesas</div>
               </div>
               <button onClick={toggleIncomePanel}
                 style={{...G.btn(showIncome?'rgba(244,63,94,0.18)':'rgba(16,185,129,0.18)'),color:showIncome?'#f43f5e':'#10b981',border:`1px solid ${showIncome?'rgba(244,63,94,0.3)':'rgba(16,185,129,0.3)'}`,fontSize:isMobile?11:12}}>
@@ -431,11 +507,13 @@ export default function Dashboard({user}) {
               </button>
             </div>
 
+            <AlertBanner expenses={expenses} month={month} onGoToExpenses={()=>setTab('expenses')} T={T} isDark={isDark}/>
+
             {showIncome && (
               <div style={{...G.sec('rgba(16,185,129,0.2)'),background:isDark?'rgba(16,185,129,0.05)':'rgba(16,185,129,0.04)',display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'1fr 1fr 1fr auto',gap:12,marginBottom:18}}>
                 {[['SALÁRIO','salary'],['VT + VR','vtvr'],['COMISSÃO','commission']].map(([lb,key])=>(
                   <div key={key}>
-                    <div style={{fontSize:9,color:T.textMuted,marginBottom:6,fontFamily:'monospace',letterSpacing:'1px'}}>{lb}</div>
+                    <div style={{fontSize:9,color:T.textMuted,marginBottom:6,fontFamily:"'JetBrains Mono',monospace",letterSpacing:'1px'}}>{lb}</div>
                     <input style={G.inp} type="number" value={incomeEdit[key]} onChange={e=>setIncomeEdit(p=>({...p,[key]:e.target.value}))}/>
                   </div>
                 ))}
@@ -462,16 +540,16 @@ export default function Dashboard({user}) {
                     <Ring pct={pct} size={isMobile?76:90} T={T}/>
                     <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',textAlign:'center'}}>
                       <div style={{fontSize:isMobile?13:15,fontWeight:800}}>{Math.round(pct)}%</div>
-                      <div style={{fontSize:7,color:T.textMuted,fontFamily:'monospace'}}>PAGO</div>
+                      <div style={{fontSize:7,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace"}}>PAGO</div>
                     </div>
                   </div>
                   <div style={{flex:1}}>
                     <div style={{fontSize:isMobile?14:16,fontWeight:800,marginBottom:3}}>Progresso de Pagamentos</div>
-                    <div style={{fontSize:11,color:T.textMuted,fontFamily:'monospace',marginBottom:12}}>{expenses.filter(e=>e.paid).length} de {expenses.length} pagas · {monthLabel(month)}</div>
+                    <div style={{fontSize:11,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",marginBottom:12}}>{expenses.filter(e=>e.paid).length} de {expenses.length} pagas · {monthLabel(month)}</div>
                     <div style={{background:T.border,borderRadius:99,height:6,overflow:'hidden'}}>
                       <div style={{width:`${pct}%`,height:'100%',background:'linear-gradient(90deg,#6366f1,#818cf8)',borderRadius:99,transition:'width 1s cubic-bezier(.34,1.56,.64,1)',boxShadow:'0 0 10px rgba(99,102,241,0.5)'}}/>
                     </div>
-                    <div style={{display:'flex',justifyContent:'space-between',marginTop:8,fontSize:11,fontFamily:'monospace'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginTop:8,fontSize:11,fontFamily:"'JetBrains Mono',monospace"}}>
                       <span style={{color:'#10b981'}}>✓ {fmt(paid)}</span>
                       <span style={{color:'#f43f5e'}}>⏳ {fmt(pending)}</span>
                     </div>
@@ -484,8 +562,8 @@ export default function Dashboard({user}) {
                     {[['SALÁRIO',income.salary,'#10b981'],['VT + VR',income.vtvr,'#3b82f6'],['COMISSÃO',income.commission,'#f59e0b']].map(([lb,v,c])=>(
                       <div key={lb} style={{marginBottom:12}}>
                         <div style={{display:'flex',justifyContent:'space-between',marginBottom:5,fontSize:11}}>
-                          <span style={{color:T.textMuted,fontFamily:'monospace'}}>{lb}</span>
-                          <span style={{fontWeight:700,color:c,fontFamily:'monospace'}}>{fmt(v)}</span>
+                          <span style={{color:T.textMuted,fontFamily:"'JetBrains Mono',monospace"}}>{lb}</span>
+                          <span style={{fontWeight:700,color:c,fontFamily:"'JetBrains Mono',monospace"}}>{fmt(v)}</span>
                         </div>
                         <div style={{background:T.border,borderRadius:99,height:4}}>
                           <div style={{width:`${totalIncome>0?(v/totalIncome)*100:0}%`,height:'100%',background:c,borderRadius:99,boxShadow:`0 0 6px ${c}66`}}/>
@@ -493,8 +571,8 @@ export default function Dashboard({user}) {
                       </div>
                     ))}
                     <div style={{display:'flex',justifyContent:'space-between',borderTop:`1px solid ${T.border}`,paddingTop:10,fontSize:11}}>
-                      <span style={{color:T.textMuted,fontFamily:'monospace'}}>TOTAL</span>
-                      <span style={{fontWeight:800,color:'#10b981',fontFamily:'monospace'}}>{fmt(totalIncome)}</span>
+                      <span style={{color:T.textMuted,fontFamily:"'JetBrains Mono',monospace"}}>TOTAL</span>
+                      <span style={{fontWeight:800,color:'#10b981',fontFamily:"'JetBrains Mono',monospace"}}>{fmt(totalIncome)}</span>
                     </div>
                   </div>
                   {!isMobile && (
@@ -510,7 +588,7 @@ export default function Dashboard({user}) {
                                 <div style={{width:`${(Number(e.value)/Number(top5[0].value))*100}%`,height:'100%',background:CAT_COLORS[e.category],borderRadius:99}}/>
                               </div>
                             </div>
-                            <div style={{fontSize:12,fontWeight:800,fontFamily:'monospace',flexShrink:0}}>{fmt(e.value)}</div>
+                            <div style={{fontSize:12,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",flexShrink:0}}>{fmt(e.value)}</div>
                           </div>
                         ))
                       }
@@ -526,7 +604,7 @@ export default function Dashboard({user}) {
         {tab==='expenses' && (
           <div style={{animation:'fadeUp .3s ease'}}>
             <div style={{fontSize:isMobile?20:24,fontWeight:800,letterSpacing:'-1px',marginBottom:3}}>Despesas</div>
-            <div style={{fontSize:11,color:T.textMuted,fontFamily:'monospace',marginBottom:16}}>{monthLabel(month)} · {expenses.length} registros</div>
+            <div style={{fontSize:11,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",marginBottom:16}}>{monthLabel(month)} · {expenses.length} registros</div>
 
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8,marginBottom:12}}>
               <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
@@ -544,19 +622,19 @@ export default function Dashboard({user}) {
               <div style={{...G.sec('rgba(99,102,241,0.2)'),background:isDark?'rgba(99,102,241,0.06)':'rgba(99,102,241,0.04)',marginBottom:14}}>
                 <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'2fr 1fr 1fr 1fr auto',gap:10,marginBottom:parseInt(newE.parcelas)>1?10:0}}>
                   <div style={{gridColumn:isMobile?'1/-1':'auto'}}>
-                    <div style={{fontSize:9,color:T.textMuted,marginBottom:5,fontFamily:'monospace',letterSpacing:'1px'}}>DESCRIÇÃO</div>
+                    <div style={{fontSize:9,color:T.textMuted,marginBottom:5,fontFamily:"'JetBrains Mono',monospace",letterSpacing:'1px'}}>DESCRIÇÃO</div>
                     <input style={G.inp} type="text" placeholder="Nome da despesa" value={newE.name} onChange={e=>setNewE(p=>({...p,name:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&addExpense()}/>
                   </div>
                   <div>
-                    <div style={{fontSize:9,color:T.textMuted,marginBottom:5,fontFamily:'monospace',letterSpacing:'1px'}}>VALOR (R$)</div>
+                    <div style={{fontSize:9,color:T.textMuted,marginBottom:5,fontFamily:"'JetBrains Mono',monospace",letterSpacing:'1px'}}>VALOR (R$)</div>
                     <input style={G.inp} type="number" placeholder="0,00" value={newE.value} onChange={e=>setNewE(p=>({...p,value:e.target.value}))}/>
                   </div>
                   <div>
-                    <div style={{fontSize:9,color:T.textMuted,marginBottom:5,fontFamily:'monospace',letterSpacing:'1px'}}>PARCELAS</div>
+                    <div style={{fontSize:9,color:T.textMuted,marginBottom:5,fontFamily:"'JetBrains Mono',monospace",letterSpacing:'1px'}}>PARCELAS</div>
                     <input style={G.inp} type="number" min="1" max="60" placeholder="1" value={newE.parcelas} onChange={e=>setNewE(p=>({...p,parcelas:e.target.value}))}/>
                   </div>
                   <div>
-                    <div style={{fontSize:9,color:T.textMuted,marginBottom:5,fontFamily:'monospace',letterSpacing:'1px'}}>CATEGORIA</div>
+                    <div style={{fontSize:9,color:T.textMuted,marginBottom:5,fontFamily:"'JetBrains Mono',monospace",letterSpacing:'1px'}}>CATEGORIA</div>
                     <select style={{...G.inp,cursor:'pointer'}} value={newE.category} onChange={e=>setNewE(p=>({...p,category:e.target.value}))}>
                       {CATS.map(c=><option key={c} value={c}>{c}</option>)}
                     </select>
@@ -577,10 +655,10 @@ export default function Dashboard({user}) {
             <div style={G.sec()}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
                 <div style={{...G.lbl,marginBottom:0}}>{filtered.length} despesas{filterCat!=='Todos'?` · ${filterCat}`:''}</div>
-                <span style={{fontSize:11,color:T.textMuted,fontFamily:'monospace'}}>{fmt(filtered.reduce((s,e)=>s+Number(e.value),0))}</span>
+                <span style={{fontSize:11,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace"}}>{fmt(filtered.reduce((s,e)=>s+Number(e.value),0))}</span>
               </div>
               {loading?<div style={{textAlign:'center',padding:'30px',color:T.textMuted,fontSize:12}}>Carregando...</div>
-                :filtered.length===0?<div style={{textAlign:'center',padding:'40px',color:T.textMuted,fontSize:12,fontFamily:'monospace'}}>Nenhuma despesa em {monthLabel(month)}</div>
+                :filtered.length===0?<div style={{textAlign:'center',padding:'40px',color:T.textMuted,fontSize:12,fontFamily:"'JetBrains Mono',monospace"}}>Nenhuma despesa em {monthLabel(month)}</div>
                 :filtered.map(e=>(
                   <div key={e.id} style={G.expRow(e.paid)} onClick={()=>togglePaid(e.id,e.paid)}>
                     <div style={{width:28,height:28,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,background:e.paid?'rgba(16,185,129,0.15)':'rgba(244,63,94,0.1)',color:e.paid?'#10b981':'#f43f5e',border:`1.5px solid ${e.paid?'rgba(16,185,129,0.4)':'rgba(244,63,94,0.3)'}`,flexShrink:0,transition:'all .2s'}}>
@@ -590,10 +668,10 @@ export default function Dashboard({user}) {
                       <div style={{fontSize:12,fontWeight:700,marginBottom:3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{e.name}</div>
                       <div style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'center'}}>
                         <span style={G.pill(CAT_COLORS[e.category]||'#94a3b8')}>{e.category}</span>
-                        {e.parcelas_total>1&&<span style={{background:'rgba(139,92,246,0.15)',color:'#a78bfa',border:'1px solid rgba(139,92,246,0.3)',padding:'2px 7px',borderRadius:20,fontSize:9,fontWeight:700,fontFamily:'monospace'}}>📅 {e.parcela_atual}/{e.parcelas_total}</span>}
+                        {e.parcelas_total>1&&<span style={{background:'rgba(139,92,246,0.15)',color:'#a78bfa',border:'1px solid rgba(139,92,246,0.3)',padding:'2px 7px',borderRadius:20,fontSize:9,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>📅 {e.parcela_atual}/{e.parcelas_total}</span>}
                       </div>
                     </div>
-                    <div style={{fontSize:isMobile?13:14,fontWeight:800,fontFamily:'monospace',color:e.paid?'#10b981':'#f43f5e',flexShrink:0}}>{fmt(e.value)}</div>
+                    <div style={{fontSize:isMobile?13:14,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",color:e.paid?'#10b981':'#f43f5e',flexShrink:0}}>{fmt(e.value)}</div>
                     {!isMobile&&<span style={{...G.pill(e.paid?'#10b981':'#f43f5e'),margin:'0 6px'}}>{e.paid?'PAGO':'PENDENTE'}</span>}
                     <button onClick={ev=>{ev.stopPropagation();setEditingExpense(e)}}
                       style={{background:'rgba(99,102,241,0.1)',border:'none',borderRadius:8,color:'#818cf8',cursor:'pointer',padding:'5px 8px',fontSize:11,transition:'background .15s',flexShrink:0}}
@@ -614,7 +692,7 @@ export default function Dashboard({user}) {
         {tab==='charts' && (
           <div style={{animation:'fadeUp .3s ease'}}>
             <div style={{fontSize:isMobile?20:24,fontWeight:800,letterSpacing:'-1px',marginBottom:3}}>Gráficos</div>
-            <div style={{fontSize:11,color:T.textMuted,fontFamily:'monospace',marginBottom:16}}>{monthLabel(month)}</div>
+            <div style={{fontSize:11,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",marginBottom:16}}>{monthLabel(month)}</div>
             <div style={G.row}>
               <div style={{...G.sec(),flex:1,marginBottom:0}}>
                 <div style={G.lbl}>Despesas por Categoria</div>
@@ -632,8 +710,8 @@ export default function Dashboard({user}) {
                       {catData.map(d=>(
                         <div key={d.name} style={{display:'flex',alignItems:'center',gap:4,fontSize:10}}>
                           <div style={{width:7,height:7,borderRadius:2,background:d.color}}/>
-                          <span style={{color:T.textMuted,fontFamily:'monospace'}}>{d.name}</span>
-                          <span style={{fontWeight:700,fontFamily:'monospace'}}>{fmt(d.value)}</span>
+                          <span style={{color:T.textMuted,fontFamily:"'JetBrains Mono',monospace"}}>{d.name}</span>
+                          <span style={{fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{fmt(d.value)}</span>
                         </div>
                       ))}
                     </div>
@@ -645,8 +723,8 @@ export default function Dashboard({user}) {
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={[{n:'Receitas',v:totalIncome},{n:'Despesas',v:total},{n:'Pagas',v:paid},{n:'Saldo',v:Math.max(0,balance)}]} barCategoryGap="35%">
                     <CartesianGrid strokeDasharray="3 3" stroke={T.chartGrid}/>
-                    <XAxis dataKey="n" tick={{fill:T.textMuted,fontSize:10,fontFamily:'monospace'}} axisLine={false} tickLine={false}/>
-                    <YAxis tick={{fill:T.textMuted,fontSize:10,fontFamily:'monospace'}} axisLine={false} tickLine={false} tickFormatter={fmtK}/>
+                    <XAxis dataKey="n" tick={{fill:T.textMuted,fontSize:10,fontFamily:"'JetBrains Mono',monospace"}} axisLine={false} tickLine={false}/>
+                    <YAxis tick={{fill:T.textMuted,fontSize:10,fontFamily:"'JetBrains Mono',monospace"}} axisLine={false} tickLine={false} tickFormatter={fmtK}/>
                     <Tooltip content={<CTip isDark={isDark}/>} cursor={{fill:isDark?'rgba(255,255,255,0.03)':'rgba(0,0,0,0.03)'}}/>
                     <Bar dataKey="v" name="Valor" radius={[6,6,0,0]}>
                       {['#10b981','#f43f5e','#3b82f6','#818cf8'].map((c,i)=><Cell key={i} fill={c} fillOpacity={0.85}/>)}
@@ -662,12 +740,12 @@ export default function Dashboard({user}) {
                   const p=d.value>0?(d.paidVal/d.value)*100:0
                   return (
                     <div key={d.name} style={{background:d.color+'12',border:`1px solid ${d.color}28`,borderRadius:12,padding:'12px 13px'}}>
-                      <div style={{fontSize:9,fontWeight:700,color:d.color,fontFamily:'monospace',letterSpacing:'1px',marginBottom:5}}>{d.name.toUpperCase()}</div>
-                      <div style={{fontSize:14,fontWeight:800,marginBottom:6,fontFamily:'monospace',color:T.text}}>{fmt(d.value)}</div>
+                      <div style={{fontSize:9,fontWeight:700,color:d.color,fontFamily:"'JetBrains Mono',monospace",letterSpacing:'1px',marginBottom:5}}>{d.name.toUpperCase()}</div>
+                      <div style={{fontSize:14,fontWeight:800,marginBottom:6,fontFamily:"'JetBrains Mono',monospace",color:T.text}}>{fmt(d.value)}</div>
                       <div style={{background:isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.08)',borderRadius:99,height:3}}>
                         <div style={{width:`${p}%`,height:'100%',background:d.color,borderRadius:99,boxShadow:`0 0 6px ${d.color}66`}}/>
                       </div>
-                      <div style={{fontSize:9,color:T.textMuted,marginTop:4,fontFamily:'monospace'}}>{d.count} itens · {Math.round(p)}% pago</div>
+                      <div style={{fontSize:9,color:T.textMuted,marginTop:4,fontFamily:"'JetBrains Mono',monospace"}}>{d.count} itens · {Math.round(p)}% pago</div>
                     </div>
                   )
                 })}
@@ -680,7 +758,7 @@ export default function Dashboard({user}) {
         {tab==='history' && (
           <div style={{animation:'fadeUp .3s ease'}}>
             <div style={{fontSize:isMobile?20:24,fontWeight:800,letterSpacing:'-1px',marginBottom:3}}>Histórico Mensal</div>
-            <div style={{fontSize:11,color:T.textMuted,fontFamily:'monospace',marginBottom:16}}>{history.length} meses · Supabase</div>
+            <div style={{fontSize:11,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",marginBottom:16}}>{history.length} meses · Supabase</div>
             {history.length>1&&(
               <div style={G.sec()}>
                 <div style={G.lbl}>Evolução Receitas vs Despesas</div>
@@ -691,10 +769,10 @@ export default function Dashboard({user}) {
                       <linearGradient id="gE" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f43f5e" stopOpacity={0.15}/><stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/></linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke={T.chartGrid}/>
-                    <XAxis dataKey="label" tick={{fill:T.textMuted,fontSize:10,fontFamily:'monospace'}} axisLine={false} tickLine={false}/>
-                    <YAxis tick={{fill:T.textMuted,fontSize:10,fontFamily:'monospace'}} axisLine={false} tickLine={false} tickFormatter={fmtK}/>
+                    <XAxis dataKey="label" tick={{fill:T.textMuted,fontSize:10,fontFamily:"'JetBrains Mono',monospace"}} axisLine={false} tickLine={false}/>
+                    <YAxis tick={{fill:T.textMuted,fontSize:10,fontFamily:"'JetBrains Mono',monospace"}} axisLine={false} tickLine={false} tickFormatter={fmtK}/>
                     <Tooltip content={<CTip isDark={isDark}/>}/>
-                    <Legend formatter={v=><span style={{color:T.textMuted,fontSize:10,fontFamily:'monospace'}}>{v}</span>}/>
+                    <Legend formatter={v=><span style={{color:T.textMuted,fontSize:10,fontFamily:"'JetBrains Mono',monospace"}}>{v}</span>}/>
                     <Area type="monotone" dataKey="income" name="Receitas" stroke="#10b981" strokeWidth={2} fill="url(#gI)" dot={{fill:'#10b981',r:3}}/>
                     <Area type="monotone" dataKey="total" name="Despesas" stroke="#f43f5e" strokeWidth={2} fill="url(#gE)" dot={{fill:'#f43f5e',r:3}}/>
                   </AreaChart>
@@ -703,18 +781,18 @@ export default function Dashboard({user}) {
             )}
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:10,marginBottom:16}}>
               {history.length===0
-                ?<div style={{gridColumn:'1/-1',textAlign:'center',padding:'40px',color:T.textMuted,fontSize:12,fontFamily:'monospace'}}>Histórico aparece conforme você registrar despesas em meses diferentes</div>
+                ?<div style={{gridColumn:'1/-1',textAlign:'center',padding:'40px',color:T.textMuted,fontSize:12,fontFamily:"'JetBrains Mono',monospace"}}>Histórico aparece conforme você registrar despesas em meses diferentes</div>
                 :history.map((h,i)=>{
                   const bal=h.income-h.total,p=h.total>0?(h.paid/h.total)*100:0,c=bal>=0?'#10b981':'#f43f5e',sel=selHistory===i
                   return (
                     <div key={h.month} onClick={()=>setSelHistory(sel?null:i)}
                       style={{background:sel?(isDark?'rgba(99,102,241,0.12)':'rgba(99,102,241,0.07)'):T.bgCard,border:`1px solid ${sel?'rgba(99,102,241,0.4)':T.border}`,borderRadius:14,padding:'13px 14px',cursor:'pointer',transition:'all .2s'}}>
                       <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
-                        <span style={{fontSize:10,fontWeight:700,color:T.textMuted,fontFamily:'monospace'}}>{h.label}</span>
-                        {h.month===month&&<span style={{fontSize:8,background:'rgba(245,158,11,0.15)',color:'#fde68a',border:'1px solid rgba(245,158,11,0.3)',padding:'1px 6px',borderRadius:20,fontFamily:'monospace'}}>ATUAL</span>}
+                        <span style={{fontSize:10,fontWeight:700,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace"}}>{h.label}</span>
+                        {h.month===month&&<span style={{fontSize:8,background:'rgba(245,158,11,0.15)',color:'#fde68a',border:'1px solid rgba(245,158,11,0.3)',padding:'1px 6px',borderRadius:20,fontFamily:"'JetBrains Mono',monospace"}}>ATUAL</span>}
                       </div>
-                      <div style={{fontSize:15,fontWeight:800,color:c,fontFamily:'monospace',marginBottom:2}}>{bal>=0?'':'-'}{fmt(Math.abs(bal))}</div>
-                      <div style={{fontSize:10,color:T.textMuted,fontFamily:'monospace',marginBottom:8}}>{fmt(h.total)} gastos</div>
+                      <div style={{fontSize:15,fontWeight:800,color:c,fontFamily:"'JetBrains Mono',monospace",marginBottom:2}}>{bal>=0?'':'-'}{fmt(Math.abs(bal))}</div>
+                      <div style={{fontSize:10,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",marginBottom:8}}>{fmt(h.total)} gastos</div>
                       <div style={{background:T.border,borderRadius:99,height:3}}>
                         <div style={{width:`${p}%`,height:'100%',background:c,borderRadius:99}}/>
                       </div>
@@ -734,8 +812,8 @@ export default function Dashboard({user}) {
                       ['% PAGO',Math.round(p)+'%','#f59e0b'],['Nº ITENS',h.count,'#a78bfa']
                     ].map(([lb,v,c])=>(
                       <div key={lb} style={{background:T.glass,borderRadius:10,padding:'10px 12px',border:`1px solid ${T.border}`}}>
-                        <div style={{fontSize:8,color:T.textMuted,fontFamily:'monospace',letterSpacing:'1px',marginBottom:3}}>{lb}</div>
-                        <div style={{fontSize:13,fontWeight:800,color:c,fontFamily:'monospace'}}>{v}</div>
+                        <div style={{fontSize:8,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:'1px',marginBottom:3}}>{lb}</div>
+                        <div style={{fontSize:13,fontWeight:800,color:c,fontFamily:"'JetBrains Mono',monospace"}}>{v}</div>
                       </div>
                     ))}
                   </div>
