@@ -1,3 +1,196 @@
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area, Legend } from 'recharts'
+
+const CAT_COLORS = { 'Cartão':'#f43f5e','Banco':'#3b82f6','Serviços':'#a78bfa','Moradia':'#f59e0b','Transporte':'#10b981','Mercado':'#fb923c','Outros':'#94a3b8' }
+const CATS = Object.keys(CAT_COLORS)
+const fmt = v => 'R$ ' + Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
+const fmtK = v => 'R$'+(v/1000).toFixed(1).replace('.',',')+' k'
+const curMonth = () => {
+  const d = new Date()
+  if (d.getMonth() === 1 && d.getFullYear() === 2026) return '03/2026'
+  return `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+}
+const monthLabel = m => { if(!m)return''; const[mo,yr]=m.split('/'); const n=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']; return`${n[parseInt(mo)-1]}/${yr.slice(2)}` }
+
+/* ── TEMA ── */
+function useTheme() {
+  const [mode,setMode] = useState(()=>localStorage.getItem('fc_theme')||'dark')
+  useEffect(()=>{ localStorage.setItem('fc_theme',mode) },[mode])
+  const sysDark = typeof window!=='undefined'&&window.matchMedia?.('(prefers-color-scheme: dark)').matches
+  const isDark = mode==='dark'||(mode==='system'&&sysDark)
+  const T = isDark ? {
+    bg:'#050810',bgCard:'rgba(8,12,24,0.97)',border:'rgba(99,102,241,0.12)',
+    text:'#e2e8f0',textMuted:'#475569',textFaint:'#1e293b',
+    sidebar:'rgba(5,8,16,0.99)',input:'rgba(99,102,241,0.06)',inputBorder:'rgba(99,102,241,0.15)',
+    expPaid:'rgba(16,185,129,0.06)',expPaidBorder:'rgba(16,185,129,0.18)',
+    expPending:'rgba(244,63,94,0.05)',expPendingBorder:'rgba(244,63,94,0.15)',
+    chartGrid:'rgba(255,255,255,0.04)',glass:'rgba(255,255,255,0.02)',scrollbar:'#1e293b',isDark:true,
+  } : {
+    bg:'#eef2ff',bgCard:'rgba(255,255,255,0.95)',border:'rgba(0,0,0,0.08)',
+    text:'#0f172a',textMuted:'#64748b',textFaint:'#cbd5e1',
+    sidebar:'rgba(248,250,255,0.99)',input:'rgba(0,0,0,0.04)',inputBorder:'rgba(0,0,0,0.1)',
+    expPaid:'rgba(16,185,129,0.06)',expPaidBorder:'rgba(16,185,129,0.25)',
+    expPending:'rgba(244,63,94,0.04)',expPendingBorder:'rgba(244,63,94,0.2)',
+    chartGrid:'rgba(0,0,0,0.05)',glass:'rgba(0,0,0,0.015)',scrollbar:'#cbd5e1',isDark:false,
+  }
+  return { mode,setMode,isDark,T }
+}
+
+/* ── MOBILE HOOK ── */
+function useIsMobile() {
+  const [isMobile,setIsMobile] = useState(()=>window.innerWidth<768)
+  useEffect(()=>{
+    const fn = ()=>setIsMobile(window.innerWidth<768)
+    window.addEventListener('resize',fn)
+    return ()=>window.removeEventListener('resize',fn)
+  },[])
+  return isMobile
+}
+
+/* ── COMPONENTES ── */
+function Ring({pct,size=90,stroke=8,color='#6366f1',T}) {
+  const r=(size-stroke)/2,circ=2*Math.PI*r
+  const [off,setOff]=useState(circ)
+  useEffect(()=>{ const t=setTimeout(()=>setOff(circ*(1-pct/100)),100); return()=>clearTimeout(t) },[pct,circ])
+  return (
+    <svg width={size} height={size} style={{transform:'rotate(-90deg)'}}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={T.border} strokeWidth={stroke}/>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={circ} style={{strokeDashoffset:off,transition:'stroke-dashoffset 1.1s cubic-bezier(.34,1.56,.64,1)'}}/>
+    </svg>
+  )
+}
+
+function CTip({active,payload,label,isDark}) {
+  if(!active||!payload?.length)return null
+  const T2={bg:isDark?'rgba(10,14,26,0.97)':'rgba(255,255,255,0.97)',border:isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.08)'}
+  return (
+    <div style={{background:T2.bg,border:`1px solid ${T2.border}`,borderRadius:10,padding:'10px 14px',backdropFilter:'blur(20px)'}}>
+      {label&&<p style={{color:'#64748b',fontSize:11,marginBottom:5,fontFamily:"'JetBrains Mono',monospace"}}>{label}</p>}
+      {payload.map((p,i)=><p key={i} style={{color:p.color||p.fill,fontWeight:700,fontSize:12,margin:'2px 0',fontFamily:"'JetBrains Mono',monospace"}}>{p.name}: {fmt(p.value)}</p>)}
+    </div>
+  )
+}
+
+function StatCard({label,value,color,borderColor,icon,sub,T}) {
+  return (
+    <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:16,padding:'16px 18px',position:'relative',overflow:'hidden',transition:'border-color .2s',borderTop:`2px solid ${borderColor}`}}>
+      <div style={{position:'absolute',inset:0,background:`radial-gradient(circle at 80% 20%,${color}10,transparent 60%)`,pointerEvents:'none'}}/>
+      <div style={{fontSize:9,letterSpacing:'2px',color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",textTransform:'uppercase',marginBottom:7}}>{label}</div>
+      <div style={{fontSize:22,fontWeight:800,color,letterSpacing:'-0.5px',marginBottom:4,fontFamily:"'JetBrains Mono',monospace"}}>{fmt(value)}</div>
+      <div style={{fontSize:10,color:T.textMuted,marginTop:4,fontFamily:"'JetBrains Mono',monospace"}}>{sub}</div>
+    </div>
+  )
+}
+
+function Toast({msg,type}) {
+  if(!msg)return null
+  const colors={success:'#10b981',error:'#f43f5e',loading:'#6366f1',info:'#3b82f6'}
+  const c=colors[type]||'#6366f1'
+  return (
+    <div style={{position:'fixed',bottom:24,right:24,background:'rgba(10,14,26,0.97)',border:`1px solid ${c}44`,borderRadius:12,padding:'12px 18px',color:'#e2e8f0',fontSize:13,fontWeight:600,zIndex:9999,boxShadow:`0 8px 32px ${c}22`,backdropFilter:'blur(20px)',display:'flex',alignItems:'center',gap:10,animation:'fadeUp .3s ease',fontFamily:"'Outfit',sans-serif"}}>
+      <div style={{width:8,height:8,borderRadius:'50%',background:c,flexShrink:0,boxShadow:`0 0 8px ${c}`}}/>
+      {msg}
+    </div>
+  )
+}
+
+function EditModal({expense, onSave, onClose, T, isDark}) {
+  const [form, setForm] = useState({name:expense.name, value:String(expense.value), category:expense.category})
+  const [loading, setLoading] = useState(false)
+  const inp = {width:'100%',background:T.input,border:`1px solid ${T.inputBorder}`,borderRadius:10,color:T.text,padding:'10px 13px',fontSize:13,fontFamily:"'Outfit',sans-serif",outline:'none'}
+  const handleSave = async () => {
+    if(!form.name.trim()||!form.value) return
+    setLoading(true)
+    await onSave(expense.id, {name:form.name.trim(), value:parseFloat(form.value), category:form.category})
+    setLoading(false)
+  }
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16,backdropFilter:'blur(8px)'}} onClick={onClose}>
+      <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:20,padding:'28px',width:'100%',maxWidth:420,boxShadow:'0 32px 80px rgba(0,0,0,0.5)'}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:16,fontWeight:800,marginBottom:20,letterSpacing:'-0.3px'}}>Editar Despesa</div>
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:9,color:T.textMuted,marginBottom:5,fontFamily:"'JetBrains Mono',monospace",letterSpacing:'1px'}}>DESCRIÇÃO</div>
+          <input style={inp} value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/>
+        </div>
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:9,color:T.textMuted,marginBottom:5,fontFamily:"'JetBrains Mono',monospace",letterSpacing:'1px'}}>VALOR (R$)</div>
+          <input style={inp} type="number" value={form.value} onChange={e=>setForm(p=>({...p,value:e.target.value}))}/>
+        </div>
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:9,color:T.textMuted,marginBottom:5,fontFamily:"'JetBrains Mono',monospace",letterSpacing:'1px'}}>CATEGORIA</div>
+          <select style={{...inp,cursor:'pointer'}} value={form.category} onChange={e=>setForm(p=>({...p,category:e.target.value}))}>
+            {CATS.map(c=><option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div style={{display:'flex',gap:10}}>
+          <button onClick={onClose} style={{flex:1,background:'transparent',border:`1px solid ${T.border}`,borderRadius:12,color:T.textMuted,padding:'11px',fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Cancelar</button>
+          <button onClick={handleSave} disabled={loading} style={{flex:2,background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:12,color:'#fff',padding:'11px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:'0 4px 14px rgba(99,102,241,0.3)'}}>
+            {loading?'Salvando...':'Salvar alterações'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MobileNav({tab,setTab,T,isDark}) {
+  const items=[['overview','📊','Início'],['expenses','💳','Despesas'],['charts','📈','Gráficos'],['history','🗂','Histórico'],['privacy','🔒','Privac.']]
+  return (
+    <div style={{position:'fixed',bottom:0,left:0,right:0,background:T.sidebar,borderTop:`1px solid ${T.border}`,display:'flex',zIndex:100,paddingBottom:'env(safe-area-inset-bottom)'}}>
+      {items.map(([k,ic,lb])=>(
+        <button key={k} onClick={()=>setTab(k)}
+          style={{flex:1,padding:'10px 0 12px',border:'none',background:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3,color:tab===k?'#818cf8':T.textMuted,transition:'color .15s',fontFamily:'inherit'}}>
+          <span style={{fontSize:18,lineHeight:1}}>{ic}</span>
+          <span style={{fontSize:9,fontWeight:tab===k?700:400,letterSpacing:'0.5px'}}>{lb}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/* ── BANNER DE ALERTAS ── */
+function AlertBanner({expenses, month, onGoToExpenses, T, isDark}) {
+  const [dismissed, setDismissed] = useState(false)
+  const isCurrentMonth = month === curMonth()
+  const pending = expenses.filter(e => !e.paid)
+  const allPaid = expenses.length > 0 && pending.length === 0
+  if (dismissed || expenses.length === 0) return null
+  if (isCurrentMonth && pending.length > 0) {
+    const urgency = pending.length >= 5 || pending.reduce((s,e)=>s+Number(e.value),0) > 1000 ? 'high' : 'medium'
+    const color = urgency === 'high' ? '#f43f5e' : '#f59e0b'
+    const bg = urgency === 'high' ? (isDark?'rgba(244,63,94,0.08)':'rgba(244,63,94,0.05)') : (isDark?'rgba(245,158,11,0.08)':'rgba(245,158,11,0.05)')
+    const border = urgency === 'high' ? 'rgba(244,63,94,0.25)' : 'rgba(245,158,11,0.25)'
+    return (
+      <div style={{background:bg,border:`1px solid ${border}`,borderRadius:14,padding:'14px 16px',marginBottom:16,display:'flex',alignItems:'center',gap:12,animation:'fadeUp .3s ease'}}>
+        <div style={{fontSize:22,flexShrink:0}}>{urgency==='high'?'🚨':'⚠️'}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:13,fontWeight:800,color,marginBottom:2}}>{pending.length} {pending.length===1?'despesa pendente':'despesas pendentes'} este mês</div>
+          <div style={{fontSize:11,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace"}}>
+            Falta pagar <strong style={{color}}>{pending.reduce((s,e)=>s+Number(e.value),0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong>
+          </div>
+        </div>
+        <button onClick={onGoToExpenses} style={{background:color+'22',border:`1px solid ${color}44`,borderRadius:8,color,padding:'6px 12px',fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>Ver →</button>
+        <button onClick={()=>setDismissed(true)} style={{background:'none',border:'none',color:T.textMuted,cursor:'pointer',fontSize:16,padding:'0 2px',flexShrink:0,lineHeight:1}}>✕</button>
+      </div>
+    )
+  }
+  if (isCurrentMonth && allPaid) {
+    return (
+      <div style={{background:isDark?'rgba(16,185,129,0.08)':'rgba(16,185,129,0.05)',border:'1px solid rgba(16,185,129,0.25)',borderRadius:14,padding:'14px 16px',marginBottom:16,display:'flex',alignItems:'center',gap:12}}>
+        <div style={{fontSize:22}}>🎉</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,fontWeight:800,color:'#10b981',marginBottom:2}}>Tudo pago este mês!</div>
+          <div style={{fontSize:11,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace"}}>Parabéns, você está em dia com todas as despesas.</div>
+        </div>
+        <button onClick={()=>setDismissed(true)} style={{background:'none',border:'none',color:T.textMuted,cursor:'pointer',fontSize:16,padding:'0 2px',lineHeight:1}}>✕</button>
+      </div>
+    )
+  }
+  return null
+}
+
+/* ── DASHBOARD ── */
 export default function Dashboard({user}) {
   const {mode,setMode,isDark,T} = useTheme()
   const isMobile = useIsMobile()
