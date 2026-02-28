@@ -384,7 +384,6 @@ export default function Dashboard({user}) {
   const exportPDF = async () => {
     notify('Gerando PDF...', 'loading', 5000)
     try {
-      // Load jsPDF
       await new Promise((res, rej) => {
         if (window.jspdf) { res(); return }
         const s = document.createElement('script')
@@ -415,56 +414,46 @@ export default function Dashboard({user}) {
       const fill = hex => { const [r,g,b] = rgb(hex); doc.setFillColor(r,g,b) }
       const draw = hex => { const [r,g,b] = rgb(hex); doc.setDrawColor(r,g,b) }
       const txt = hex => { const [r,g,b] = rgb(hex); doc.setTextColor(r,g,b) }
-      const rr = (x,y,w,h,r,f,d) => {
-        if(w <= 0 || h <= 0) return
-        const safeR = Math.min(r, w/2, h/2)
+      // Safe rect — uses plain rect to avoid roundedRect dimension issues
+      const box = (x,y,w,h,f,d) => {
+        if(w<=0||h<=0) return
         if(f) fill(f); if(d) draw(d)
-        safeRR(x,y,w,h,safeR,safeR,f&&d?'FD':f?'F':d?'D':'N')
-      }
-      const safeRR = (x,y,w,h,r1,r2,style) => {
-        if(w <= 0 || h <= 0) return
-        const sr = Math.min(r1, w/2, h/2)
-        safeRR(x,y,w,h,sr,sr,style)
+        doc.rect(x,y,w,h,f&&d?'FD':f?'F':d?'D':'N')
       }
 
       // ── HEADER ──
       const stripes = ['#4338ca','#4740cd','#4b48d0','#5050d3','#5458d6','#5860d9','#5c68dc','#6070df','#6478e2','#6880e5','#6c84e7','#7088e9']
       stripes.forEach((c,i) => { fill(c); doc.rect(0, i*(42/stripes.length), W, (42/stripes.length)+0.5, 'F') })
-      // logo box
-      fill('#ffffff'); doc.setGState(new doc.GState({opacity:0.18}))
-      rr(pad, 8, 14, 14, 2.5)
-      doc.setGState(new doc.GState({opacity:1}))
+      box(pad, 8, 14, 14, '#6366f1', null)
       doc.setFontSize(10); doc.setFont('helvetica','bold'); txt('#ffffff')
       doc.text('F', pad+7, 17, {align:'center'})
-      // brand
       doc.setFontSize(16); doc.setFont('helvetica','bold'); txt('#ffffff')
       doc.text('Finly', pad+18, 16)
       doc.setFontSize(6); doc.setFont('helvetica','normal'); txt('#ffffffaa')
       doc.text('PERSONAL FINANCE', pad+18, 21)
-      // month
       doc.setFontSize(22); doc.setFont('helvetica','bold'); txt('#ffffff')
       doc.text(monName, W-pad, 17, {align:'right'})
       doc.setFontSize(6.5); doc.setFont('helvetica','normal'); txt('#ffffffbb')
-      doc.text('RELATÓRIO MENSAL', W-pad, 23, {align:'right'})
+      doc.text('RELATORIO MENSAL', W-pad, 23, {align:'right'})
       doc.text(user.email, W-pad, 28, {align:'right'})
-      // divider
-      doc.setGState(new doc.GState({opacity:0.2})); draw('#ffffff')
-      doc.setLineWidth(0.3); doc.line(pad, 37, W-pad, 37)
+      draw('#ffffff'); doc.setLineWidth(0.3)
+      doc.setGState(new doc.GState({opacity:0.2}))
+      doc.line(pad, 37, W-pad, 37)
       doc.setGState(new doc.GState({opacity:1}))
 
       let y = 46
 
       // ── CARDS ──
       const cards = [
-        {label:'RECEITAS', val:fmtV(totalIncome), sub:'salário + benefícios', bg:'#f0fdf4', ac:'#10b981'},
-        {label:'DESPESAS', val:fmtV(total), sub:expenses.length+' lançamentos', bg:'#fef2f2', ac:'#f43f5e'},
-        {label:'PENDENTE', val:fmtV(totalPending), sub:pendingList.length+' não pagas', bg:'#fffbeb', ac:'#f59e0b'},
-        {label:'SALDO', val:(balance>=0?'':'-')+fmtV(Math.abs(balance)), sub:balance>=0?'disponível':'déficit', bg:balance>=0?'#f0f9ff':'#fef2f2', ac:balance>=0?'#6366f1':'#f43f5e'},
+        {label:'RECEITAS', val:fmtV(totalIncome), sub:'salario + beneficios', bg:'#f0fdf4', ac:'#10b981'},
+        {label:'DESPESAS', val:fmtV(total), sub:expenses.length+' lancamentos', bg:'#fef2f2', ac:'#f43f5e'},
+        {label:'PENDENTE', val:fmtV(totalPending), sub:pendingList.length+' nao pagas', bg:'#fffbeb', ac:'#f59e0b'},
+        {label:'SALDO', val:(balance>=0?'':'-')+fmtV(Math.abs(balance)), sub:balance>=0?'disponivel':'deficit', bg:balance>=0?'#f0f9ff':'#fef2f2', ac:balance>=0?'#6366f1':'#f43f5e'},
       ]
       const cw = (W-pad*2-9)/4
       cards.forEach((c,i) => {
         const cx = pad+i*(cw+3)
-        rr(cx, y, cw, 22, 2, c.bg, null)
+        box(cx, y, cw, 22, c.bg, null)
         const [ar,ag,ab] = rgb(c.ac); doc.setFillColor(ar,ag,ab)
         doc.rect(cx, y, 1.5, 22, 'F')
         doc.setFontSize(5.5); doc.setFont('helvetica','bold'); txt(c.ac)
@@ -478,18 +467,18 @@ export default function Dashboard({user}) {
 
       // ── PROGRESS ──
       if(expenses.length > 0) {
-        rr(pad, y, W-pad*2, 18, 2.5, '#f8f9ff', '#e8eaf6')
+        box(pad, y, W-pad*2, 18, '#f8f9ff', '#e8eaf6')
         doc.setFillColor(99,102,241); doc.circle(pad+11, y+9, 7, 'F')
         doc.setFontSize(7); doc.setFont('helvetica','bold'); txt('#ffffff')
         doc.text(Math.round(pct)+'%', pad+11, y+9.5, {align:'center'})
         doc.setFontSize(9.5); doc.setFont('helvetica','bold'); txt('#0f172a')
         doc.text('Progresso de Pagamentos', pad+22, y+6.5)
         doc.setFontSize(6.5); doc.setFont('helvetica','normal'); txt('#64748b')
-        doc.text(paidList.length+' de '+expenses.length+' despesas pagas · '+monName, pad+22, y+11)
-        rr(pad+22, y+13, W-pad*2-26, 3, 1.5, '#e2e8f0', null)
-        if(pct>0){ const pw=Math.max(0.1,(W-pad*2-26)*(pct/100)); doc.setFillColor(99,102,241); safeRR(pad+22, y+13, pw, 3, Math.min(1.5,pw/2), 1.5, 'F') }
+        doc.text(paidList.length+' de '+expenses.length+' despesas pagas', pad+22, y+11)
+        box(pad+22, y+13, W-pad*2-26, 3, '#e2e8f0', null)
+        if(pct>0){ const pw=Math.max(1,(W-pad*2-26)*(pct/100)); doc.setFillColor(99,102,241); doc.rect(pad+22, y+13, pw, 3, 'F') }
         doc.setFontSize(6); doc.setFont('helvetica','bold')
-        txt('#10b981'); doc.text('✓ Pago: '+fmtV(totalPaid), pad+22, y+19)
+        txt('#10b981'); doc.text('Pago: '+fmtV(totalPaid), pad+22, y+19)
         txt('#f43f5e'); doc.text('Pendente: '+fmtV(totalPending), W-pad, y+19, {align:'right'})
         y += 23
       }
@@ -499,8 +488,7 @@ export default function Dashboard({user}) {
       const c1 = pad, c2 = pad+colW+5
       const catH = Math.max(catBreakdown.length*13+16, 40)
 
-      // Categories col
-      rr(c1, y, colW, catH, 2.5, '#ffffff', '#e2e8f0')
+      box(c1, y, colW, catH, '#ffffff', '#e2e8f0')
       doc.setFontSize(5.5); doc.setFont('helvetica','bold'); txt('#94a3b8')
       doc.text('DESPESAS POR CATEGORIA', c1+4, y+6)
       draw('#f1f5f9'); doc.setLineWidth(0.2); doc.line(c1+4, y+8, c1+colW-4, y+8)
@@ -510,28 +498,26 @@ export default function Dashboard({user}) {
         doc.setFontSize(7); doc.setFont('helvetica','bold')
         doc.text(cat.name, c1+4, yc)
         txt('#0f172a'); doc.text(fmtV(cat.value), c1+colW-4, yc, {align:'right'})
-        rr(c1+4, yc+1.5, colW-8, 2.5, 1, '#f1f5f9', null)
-        if(cat.value>0){ const bw=Math.max(0.1,(colW-8)*(cat.value/maxCat)); doc.setFillColor(cr,cg,cb); safeRR(c1+4, yc+1.5, bw, 2.5, Math.min(1,bw/2),1,'F') }
+        box(c1+4, yc+1.5, colW-8, 2.5, '#f1f5f9', null)
+        if(cat.value>0){ const bw=Math.max(1,(colW-8)*(cat.value/maxCat)); doc.setFillColor(cr,cg,cb); doc.rect(c1+4, yc+1.5, bw, 2.5, 'F') }
         doc.setFontSize(5); doc.setFont('helvetica','normal'); txt('#94a3b8')
         doc.text(cat.count+' itens · '+(cat.value>0?Math.round((cat.paid/cat.value)*100):0)+'% pago', c1+4, yc+6.5)
         yc += 13
       })
 
-      // Income col
-      const incH = catH
-      rr(c2, y, colW, incH, 2.5, '#ffffff', '#e2e8f0')
+      box(c2, y, colW, catH, '#ffffff', '#e2e8f0')
       doc.setFontSize(5.5); doc.setFont('helvetica','bold'); txt('#94a3b8')
-      doc.text('COMPOSIÇÃO DAS RECEITAS', c2+4, y+6)
+      doc.text('COMPOSICAO DAS RECEITAS', c2+4, y+6)
       draw('#f1f5f9'); doc.line(c2+4, y+8, c2+colW-4, y+8)
       let yi = y+13
-      ;[['Salário', income.salary, '#10b981'],['VT + VR', income.vtvr, '#3b82f6'],['Comissão', income.commission, '#f59e0b']].forEach(([lb,v,c]) => {
+      ;[['Salario', income.salary, '#10b981'],['VT + VR', income.vtvr, '#3b82f6'],['Comissao', income.commission, '#f59e0b']].forEach(([lb,v,c]) => {
         const [ir,ig,ib] = rgb(c)
         doc.setFontSize(7); doc.setFont('helvetica','normal'); txt('#64748b')
         doc.text(lb, c2+4, yi)
         doc.setTextColor(ir,ig,ib); doc.setFont('helvetica','bold')
         doc.text(fmtV(v), c2+colW-4, yi, {align:'right'})
-        rr(c2+4, yi+1.5, colW-8, 2.5, 1, '#f1f5f9', null)
-        if(v>0&&totalIncome>0){ const iw=Math.max(0.1,(colW-8)*(v/totalIncome)); doc.setFillColor(ir,ig,ib); safeRR(c2+4, yi+1.5, iw, 2.5, Math.min(1,iw/2),1,'F') }
+        box(c2+4, yi+1.5, colW-8, 2.5, '#f1f5f9', null)
+        if(v>0&&totalIncome>0){ const iw=Math.max(1,(colW-8)*(v/totalIncome)); doc.setFillColor(ir,ig,ib); doc.rect(c2+4, yi+1.5, iw, 2.5, 'F') }
         yi += 11
       })
       draw('#f1f5f9'); doc.line(c2+4, yi+1, c2+colW-4, yi+1)
@@ -544,44 +530,44 @@ export default function Dashboard({user}) {
       // ── TABLE ──
       if(expenses.length > 0) {
         if(y > 240) { doc.addPage(); y = 16 }
-        // header
-        rr(pad, y, W-pad*2, 8, 2, '#f0f2ff', null)
+        box(pad, y, W-pad*2, 8, '#f0f2ff', null)
         doc.setFontSize(5.5); doc.setFont('helvetica','bold'); txt('#94a3b8')
-        const cols = [[pad+3,'DESCRIÇÃO'],[pad+75,'CATEGORIA'],[pad+103,'PARCELA'],[W-pad-26,'VALOR',true],[W-pad-3,'STATUS',true]]
+        const cols = [[pad+3,'DESCRICAO'],[pad+75,'CATEGORIA'],[pad+103,'PARCELA'],[W-pad-26,'VALOR',true],[W-pad-3,'STATUS',true]]
         cols.forEach(([x,lb,right]) => doc.text(lb, x, y+5.5, right?{align:'right'}:{}))
         y += 9
 
         expenses.forEach((e, idx) => {
-          if(y > 270) { 
+          if(y > 270) {
             doc.addPage(); y = 16
-            rr(pad, y, W-pad*2, 8, 2, '#f0f2ff', null)
+            box(pad, y, W-pad*2, 8, '#f0f2ff', null)
             cols.forEach(([x,lb,right]) => doc.text(lb, x, y+5.5, right?{align:'right'}:{}))
             y += 9
           }
           if(idx%2===0){ fill('#fafbff'); doc.rect(pad, y-0.5, W-pad*2, 9, 'F') }
           const ac = e.paid ? '#10b981' : '#f43f5e'
-          const [ar2,ag2,ab2] = rgb(ac)
           const catC = CAT_COLORS[e.category]||'#94a3b8'
           const [cr,cg,cb] = rgb(catC)
+          const [ar,ag,ab] = rgb(ac)
 
           doc.setFontSize(7); doc.setFont('helvetica','bold'); txt('#0f172a')
-          const nm = e.name.length>30?e.name.slice(0,30)+'…':e.name
-          doc.text(nm, pad+3, y+5)
+          doc.text(e.name.length>30?e.name.slice(0,30)+'...':e.name, pad+3, y+5)
 
-          doc.setGState(new doc.GState({opacity:0.12})); doc.setFillColor(cr,cg,cb)
-          safeRR(pad+73, y+1, 24, 5.5, 1.5, 1.5, 'F')
+          doc.setFillColor(cr,cg,cb)
+          doc.setGState(new doc.GState({opacity:0.15}))
+          doc.rect(pad+73, y+1, 24, 5.5, 'F')
           doc.setGState(new doc.GState({opacity:1}))
           doc.setFontSize(5.5); doc.setFont('helvetica','bold'); doc.setTextColor(cr,cg,cb)
           doc.text(e.category, pad+85, y+5, {align:'center'})
 
           doc.setFontSize(6); doc.setFont('helvetica','normal'); txt('#94a3b8')
-          doc.text(e.parcelas_total>1?e.parcela_atual+'/'+e.parcelas_total:'—', pad+108, y+5, {align:'center'})
+          doc.text(e.parcelas_total>1?e.parcela_atual+'/'+e.parcelas_total:'--', pad+108, y+5, {align:'center'})
 
           doc.setFontSize(7); doc.setFont('helvetica','bold'); txt(ac)
           doc.text(fmtV(e.value), W-pad-26, y+5, {align:'right'})
 
-          doc.setGState(new doc.GState({opacity:0.12})); doc.setFillColor(ar2,ag2,ab2)
-          safeRR(W-pad-20, y+1, 18, 5.5, 2, 2, 'F')
+          doc.setFillColor(ar,ag,ab)
+          doc.setGState(new doc.GState({opacity:0.15}))
+          doc.rect(W-pad-20, y+1, 18, 5.5, 'F')
           doc.setGState(new doc.GState({opacity:1}))
           doc.setFontSize(5.5); doc.setFont('helvetica','bold'); txt(ac)
           doc.text(e.paid?'PAGO':'PENDENTE', W-pad-11, y+5, {align:'center'})
@@ -590,7 +576,7 @@ export default function Dashboard({user}) {
         })
       }
 
-      // ── FOOTER all pages ──
+      // ── FOOTER ──
       const pages = doc.getNumberOfPages()
       for(let p=1; p<=pages; p++) {
         doc.setPage(p)
@@ -600,14 +586,14 @@ export default function Dashboard({user}) {
         doc.text('Finly', pad, 292)
         doc.setFontSize(6); doc.setFont('helvetica','normal'); txt('#94a3b8')
         doc.text('finly.api.br · '+new Date().toLocaleDateString('pt-BR'), W/2, 292, {align:'center'})
-        doc.text('Página '+p+' de '+pages, W-pad, 292, {align:'right'})
+        doc.text('Pagina '+p+' de '+pages, W-pad, 292, {align:'right'})
       }
 
       doc.save('Finly-'+monName.replace('/','_')+'.pdf')
       notify('PDF baixado! ✓', 'success')
     } catch(err) {
-      console.error(err)
-      notify('Erro ao gerar PDF', 'error')
+      console.error('PDF Error:', err)
+      notify('Erro ao gerar PDF: '+err.message, 'error')
     }
   }
 
