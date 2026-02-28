@@ -388,6 +388,354 @@ export default function Dashboard({user}) {
     const totalPaid = paidList.reduce((s,e) => s+Number(e.value), 0)
     const totalPending = pendingList.reduce((s,e) => s+Number(e.value), 0)
     const fmtVal = v => 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
+    const pct = total > 0 ? (totalPaid/total)*100 : 0
+
+    const catBreakdown = CATS.map(cat => ({
+      name: cat, color: CAT_COLORS[cat],
+      value: expenses.filter(e => e.category===cat).reduce((s,e)=>s+Number(e.value),0),
+      paid: expenses.filter(e => e.category===cat&&e.paid).reduce((s,e)=>s+Number(e.value),0),
+      count: expenses.filter(e => e.category===cat).length
+    })).filter(c => c.value > 0).sort((a,b) => b.value-a.value)
+
+    const maxCat = catBreakdown.length > 0 ? catBreakdown[0].value : 1
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Finly — ${monName}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  html,body{width:210mm;background:#fff;font-family:'Outfit',sans-serif;color:#0f172a}
+  
+  .wrap{width:210mm;min-height:297mm;background:#fff;position:relative}
+
+  /* ── HEADER ── */
+  .hdr{background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%);padding:28px 36px 24px;position:relative;overflow:hidden}
+  .hdr-orb1{position:absolute;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,0.06);top:-60px;right:-30px}
+  .hdr-orb2{position:absolute;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.04);bottom:-40px;left:30%}
+  .hdr-top{display:flex;justify-content:space-between;align-items:flex-start;position:relative;z-index:1}
+  .hdr-logo{display:flex;align-items:center;gap:10px}
+  .hdr-icon{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;color:#fff;letter-spacing:-1px}
+  .hdr-brand{font-size:20px;font-weight:900;color:#fff;letter-spacing:-0.5px}
+  .hdr-tagline{font-size:8px;color:rgba(255,255,255,0.6);font-family:'JetBrains Mono',monospace;letter-spacing:2px;margin-top:1px}
+  .hdr-right{text-align:right}
+  .hdr-label{font-size:8px;color:rgba(255,255,255,0.6);font-family:'JetBrains Mono',monospace;letter-spacing:2px;margin-bottom:3px}
+  .hdr-month{font-size:28px;font-weight:900;color:#fff;letter-spacing:-1px;line-height:1}
+  .hdr-user{font-size:9px;color:rgba(255,255,255,0.55);font-family:'JetBrains Mono',monospace;margin-top:4px}
+  .hdr-line{height:1px;background:rgba(255,255,255,0.12);margin:18px 0 0;position:relative;z-index:1}
+
+  /* ── BODY ── */
+  .body{padding:24px 36px}
+
+  /* ── CARDS ── */
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+  .card{border-radius:12px;padding:13px 14px;border-left:3px solid;position:relative;overflow:hidden}
+  .card-shine{position:absolute;top:0;right:0;width:60px;height:60px;border-radius:50%;opacity:0.07}
+  .card-lbl{font-size:7px;letter-spacing:2px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;margin-bottom:5px;font-weight:700}
+  .card-val{font-size:15px;font-weight:800;letter-spacing:-0.5px;line-height:1.1}
+  .card-sub{font-size:8px;font-family:'JetBrains Mono',monospace;margin-top:3px;opacity:0.7}
+
+  /* ── PROGRESS ── */
+  .prog{background:linear-gradient(135deg,rgba(99,102,241,0.06),rgba(139,92,246,0.04));border:1px solid rgba(99,102,241,0.12);border-radius:12px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:16px}
+  .prog-ring{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 14px rgba(99,102,241,0.3)}
+  .prog-pct{font-size:13px;font-weight:900;color:#fff;line-height:1}
+  .prog-pct-sub{font-size:7px;color:rgba(255,255,255,0.7);font-family:'JetBrains Mono',monospace;text-align:center}
+  .prog-info{flex:1}
+  .prog-title{font-size:12px;font-weight:800;margin-bottom:2px}
+  .prog-sub{font-size:9px;color:#64748b;font-family:'JetBrains Mono',monospace;margin-bottom:8px}
+  .prog-bar{background:#e2e8f0;border-radius:99px;height:5px;overflow:hidden;margin-bottom:5px}
+  .prog-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#6366f1,#818cf8)}
+  .prog-nums{display:flex;justify-content:space-between;font-size:9px;font-family:'JetBrains Mono',monospace;font-weight:700}
+
+  /* ── TWO COL ── */
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+
+  /* ── SECTION ── */
+  .sec{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px}
+  .sec-title{font-size:7px;letter-spacing:2px;color:#94a3b8;font-family:'JetBrains Mono',monospace;text-transform:uppercase;font-weight:700;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #f1f5f9}
+
+  /* ── CAT BARS ── */
+  .cat-row{margin-bottom:10px}
+  .cat-row:last-child{margin-bottom:0}
+  .cat-top{display:flex;justify-content:space-between;margin-bottom:3px;align-items:center}
+  .cat-name{font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace}
+  .cat-val{font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace}
+  .cat-bar{height:4px;border-radius:99px;background:#f1f5f9;overflow:hidden}
+  .cat-fill{height:100%;border-radius:99px}
+  .cat-pct{font-size:8px;color:#94a3b8;font-family:'JetBrains Mono',monospace;margin-top:2px}
+
+  /* ── INCOME BARS ── */
+  .inc-row{margin-bottom:10px}
+  .inc-row:last-child{margin-bottom:0}
+  .inc-top{display:flex;justify-content:space-between;margin-bottom:3px}
+  .inc-lbl{font-size:9px;color:#64748b;font-family:'JetBrains Mono',monospace}
+  .inc-val{font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace}
+  .inc-bar{height:4px;border-radius:99px;background:#f1f5f9;overflow:hidden}
+  .inc-fill{height:100%;border-radius:99px}
+  .inc-total{display:flex;justify-content:space-between;border-top:1px solid #f1f5f9;padding-top:8px;margin-top:8px}
+  .inc-total-lbl{font-size:9px;color:#94a3b8;font-family:'JetBrains Mono',monospace;font-weight:700}
+  .inc-total-val{font-size:9px;color:#10b981;font-family:'JetBrains Mono',monospace;font-weight:800}
+
+  /* ── TABLE ── */
+  .table-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:20px}
+  table{width:100%;border-collapse:collapse}
+  thead{background:linear-gradient(135deg,rgba(99,102,241,0.06),rgba(139,92,246,0.03))}
+  th{padding:9px 12px;font-size:7px;letter-spacing:1.5px;color:#94a3b8;font-family:'JetBrains Mono',monospace;font-weight:700;text-transform:uppercase;border-bottom:1px solid #e2e8f0}
+  td{padding:8px 12px;font-size:10px;border-bottom:1px solid #f8faff}
+  tr:last-child td{border-bottom:none}
+  tr:nth-child(even) td{background:#fafbff}
+  .td-name{font-weight:600;max-width:180px}
+  .td-val{font-weight:800;font-family:'JetBrains Mono',monospace;text-align:right;white-space:nowrap}
+  .td-center{text-align:center}
+  .pill{padding:2px 7px;border-radius:20px;font-size:7px;font-weight:700;font-family:'JetBrains Mono',monospace;white-space:nowrap}
+  .badge-paid{background:#dcfce7;color:#16a34a}
+  .badge-pend{background:#fef2f2;color:#dc2626}
+  .parc{font-size:8px;font-family:'JetBrains Mono',monospace;color:#94a3b8}
+
+  /* ── FOOTER ── */
+  .ftr{border-top:1px solid #f1f5f9;padding:14px 36px;display:flex;justify-content:space-between;align-items:center;background:#fafbff}
+  .ftr-brand{font-size:13px;font-weight:900;background:linear-gradient(90deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .ftr-info{font-size:8px;color:#94a3b8;font-family:'JetBrains Mono',monospace;text-align:right;line-height:1.6}
+
+  @media print{
+    @page{margin:0;size:A4}
+    html,body{width:210mm}
+    .wrap{page-break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hdr">
+    <div class="hdr-orb1"></div>
+    <div class="hdr-orb2"></div>
+    <div class="hdr-top">
+      <div class="hdr-logo">
+        <div class="hdr-icon">F</div>
+        <div>
+          <div class="hdr-brand">Finly</div>
+          <div class="hdr-tagline">PERSONAL FINANCE ✦</div>
+        </div>
+      </div>
+      <div class="hdr-right">
+        <div class="hdr-label">RELATÓRIO MENSAL</div>
+        <div class="hdr-month">${monName}</div>
+        <div class="hdr-user">${user.email}</div>
+      </div>
+    </div>
+    <div class="hdr-line"></div>
+  </div>
+
+  <div class="body">
+
+    <div class="cards">
+      <div class="card" style="background:#f0fdf4;border-color:#10b981">
+        <div class="card-shine" style="background:#10b981"></div>
+        <div class="card-lbl" style="color:#10b981">Receitas</div>
+        <div class="card-val" style="color:#10b981">${fmtVal(totalIncome)}</div>
+        <div class="card-sub" style="color:#10b981">salário + benefícios</div>
+      </div>
+      <div class="card" style="background:#fef2f2;border-color:#f43f5e">
+        <div class="card-shine" style="background:#f43f5e"></div>
+        <div class="card-lbl" style="color:#f43f5e">Despesas</div>
+        <div class="card-val" style="color:#f43f5e">${fmtVal(total)}</div>
+        <div class="card-sub" style="color:#f43f5e">${expenses.length} lançamentos</div>
+      </div>
+      <div class="card" style="background:#fffbeb;border-color:#f59e0b">
+        <div class="card-shine" style="background:#f59e0b"></div>
+        <div class="card-lbl" style="color:#f59e0b">Pendente</div>
+        <div class="card-val" style="color:#f59e0b">${fmtVal(totalPending)}</div>
+        <div class="card-sub" style="color:#f59e0b">${pendingList.length} não pagas</div>
+      </div>
+      <div class="card" style="background:${balance>=0?'#f0f9ff':'#fef2f2'};border-color:${balance>=0?'#6366f1':'#f43f5e'}">
+        <div class="card-shine" style="background:${balance>=0?'#6366f1':'#f43f5e'}"></div>
+        <div class="card-lbl" style="color:${balance>=0?'#6366f1':'#f43f5e'}">Saldo</div>
+        <div class="card-val" style="color:${balance>=0?'#6366f1':'#f43f5e'}">${balance>=0?'':'-'}${fmtVal(Math.abs(balance))}</div>
+        <div class="card-sub" style="color:${balance>=0?'#6366f1':'#f43f5e'}">${balance>=0?'disponível':'déficit'}</div>
+      </div>
+    </div>
+
+    ${expenses.length > 0 ? `
+    <div class="prog">
+      <div class="prog-ring">
+        <div>
+          <div class="prog-pct">${Math.round(pct)}%</div>
+          <div class="prog-pct-sub">PAGO</div>
+        </div>
+      </div>
+      <div class="prog-info">
+        <div class="prog-title">Progresso de Pagamentos</div>
+        <div class="prog-sub">${paidList.length} de ${expenses.length} despesas pagas · ${monName}</div>
+        <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
+        <div class="prog-nums">
+          <span style="color:#10b981">✓ Pago: ${fmtVal(totalPaid)}</span>
+          <span style="color:#f43f5e">⏳ Pendente: ${fmtVal(totalPending)}</span>
+        </div>
+      </div>
+    </div>` : ''}
+
+    <div class="two-col">
+      <div class="sec">
+        <div class="sec-title">Despesas por Categoria</div>
+        ${catBreakdown.map(cat => `
+        <div class="cat-row">
+          <div class="cat-top">
+            <span class="cat-name" style="color:${cat.color}">${cat.name}</span>
+            <span class="cat-val">${fmtVal(cat.value)}</span>
+          </div>
+          <div class="cat-bar"><div class="cat-fill" style="width:${(cat.value/maxCat)*100}%;background:${cat.color}"></div></div>
+          <div class="cat-pct">${cat.count} itens · ${cat.value>0?Math.round((cat.paid/cat.value)*100):0}% pago</div>
+        </div>`).join('')}
+      </div>
+      <div class="sec">
+        <div class="sec-title">Composição das Receitas</div>
+        ${[['Salário', income.salary, '#10b981'], ['VT + VR', income.vtvr, '#3b82f6'], ['Comissão', income.commission, '#f59e0b']].map(([lb,v,c]) => `
+        <div class="inc-row">
+          <div class="inc-top">
+            <span class="inc-lbl">${lb}</span>
+            <span class="inc-val" style="color:${c}">${fmtVal(v)}</span>
+          </div>
+          <div class="inc-bar"><div class="inc-fill" style="width:${totalIncome>0?(v/totalIncome)*100:0}%;background:${c}"></div></div>
+        </div>`).join('')}
+        <div class="inc-total">
+          <span class="inc-total-lbl">TOTAL</span>
+          <span class="inc-total-val">${fmtVal(totalIncome)}</span>
+        </div>
+      </div>
+    </div>
+
+    ${expenses.length > 0 ? `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Descrição</th>
+            <th>Categoria</th>
+            <th style="text-align:center">Parcela</th>
+            <th style="text-align:right">Valor</th>
+            <th style="text-align:center">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${expenses.map(e => `
+          <tr>
+            <td class="td-name">${e.name}</td>
+            <td><span class="pill" style="background:${CAT_COLORS[e.category]||'#94a3b8'}18;color:${CAT_COLORS[e.category]||'#94a3b8'};border:1px solid ${CAT_COLORS[e.category]||'#94a3b8'}33">${e.category}</span></td>
+            <td class="td-center parc">${e.parcelas_total>1?e.parcela_atual+'/'+e.parcelas_total:'—'}</td>
+            <td class="td-val" style="color:${e.paid?'#10b981':'#f43f5e'}">${fmtVal(e.value)}</td>
+            <td class="td-center"><span class="pill ${e.paid?'badge-paid':'badge-pend'}">${e.paid?'PAGO':'PENDENTE'}</span></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : ''}
+
+  </div>
+
+  <div class="ftr">
+    <div class="ftr-brand">Finly</div>
+    <div class="ftr-info">
+      Gerado em ${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})}<br>
+      finly.api.br · dados pessoais e privados
+    </div>
+  </div>
+
+</div>
+<script>
+window.onload = () => {
+  setTimeout(() => {
+    window.print()
+    window.onafterprint = () => window.close()
+  }, 800)
+}
+</script>
+</body>
+</html>`
+
+    const win = window.open('', '_blank')
+    win.document.write(html)
+    win.document.close()
+  }
+
+  /* ── ACTIONS ── */
+  const togglePaid = async(id,cur)=>{
+    setExpenses(prev=>prev.map(e=>e.id===id?{...e,paid:!cur}:e))
+    const {error} = await supabase.from('despesas').update({paid:!cur}).eq('id',id).eq('user_id',user.id)
+    if(error){ setExpenses(prev=>prev.map(e=>e.id===id?{...e,paid:cur}:e)); notify('Erro ao atualizar','error'); return }
+    notify(!cur?'✓ Marcado como pago':'Desmarcado','success')
+    loadHistory()
+  }
+
+  const addExpense = async()=>{
+    if(!newE.name.trim()||!newE.value||isNaN(parseFloat(newE.value))){ notify('Preencha nome e valor','error'); return }
+    const parcelas=Math.max(1,Math.min(60,parseInt(newE.parcelas)||1))
+    const valorParcela=parseFloat(newE.value)
+    const nomeParcela=newE.name.toUpperCase().trim()
+    if(parcelas===1){
+      notify('Salvando...','loading',1500)
+      const {data,error} = await supabase.from('despesas').insert({user_id:user.id,name:nomeParcela,value:valorParcela,paid:false,category:newE.category,month,parcela_atual:null,parcelas_total:null,parcela_grupo:null}).select().single()
+      if(error){ notify('Erro ao adicionar','error'); return }
+      setExpenses(prev=>[data,...prev])
+    } else {
+      notify(`Criando ${parcelas} parcelas...`,'loading',2500)
+      const grupo=`${nomeParcela}_${Date.now()}`
+      const rows=[]
+      const [mesAtual,anoAtual]=month.split('/').map(Number)
+      for(let i=0;i<parcelas;i++){
+        const d=new Date(anoAtual,mesAtual-1+i,1)
+        const m=`${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+        rows.push({user_id:user.id,name:`${nomeParcela} (${i+1}/${parcelas})`,value:valorParcela,paid:false,category:newE.category,month:m,parcela_atual:i+1,parcelas_total:parcelas,parcela_grupo:grupo})
+      }
+      const {error} = await supabase.from('despesas').insert(rows)
+      if(error){ notify('Erro ao criar parcelas','error'); return }
+      notify(`${parcelas} parcelas criadas!`,'success')
+    }
+    setNewE({name:'',value:'',category:'Cartão',parcelas:'1'}); setShowAdd(false)
+    loadExpenses(); loadHistory()
+  }
+
+  const editExpense = async(id,payload)=>{
+    const {error} = await supabase.from('despesas').update(payload).eq('id',id).eq('user_id',user.id)
+    if(error){ notify('Erro ao editar','error'); return }
+    setExpenses(prev=>prev.map(e=>e.id===id?{...e,...payload}:e))
+    setEditingExpense(null)
+    notify('Despesa atualizada!','success')
+  }
+
+  const removeExpense = async(id)=>{
+    setExpenses(prev=>prev.filter(e=>e.id!==id))
+    const {error} = await supabase.from('despesas').delete().eq('id',id).eq('user_id',user.id)
+    if(error){ notify('Erro ao remover','error'); loadExpenses(); return }
+    notify('Despesa removida','success'); loadHistory()
+  }
+
+  const saveIncome = async()=>{
+    const payload={salary:parseFloat(incomeEdit.salary)||0,vtvr:parseFloat(incomeEdit.vtvr)||0,commission:parseFloat(incomeEdit.commission)||0}
+    const {data:existing} = await supabase.from('receitas').select('id').eq('user_id',user.id).eq('month',month).single()
+    let error
+    if(existing){
+      const res=await supabase.from('receitas').update(payload).eq('user_id',user.id).eq('month',month)
+      error=res.error
+    } else {
+      const res=await supabase.from('receitas').insert({user_id:user.id,month,...payload})
+      error=res.error
+    }
+    if(error){ notify('Erro ao salvar: '+error.message,'error'); return }
+    setIncome(payload); notify('Receitas salvas!','success'); setShowIncome(false); loadHistory()
+  }
+
+  const signOut = async()=>{ await supabase.auth.signOut() }
+
+  /* ── EXPORT PDF ── */
+  const exportPDF = () => {
+    const monName = monthLabel(month)
+    const paidList = expenses.filter(e => e.paid)
+    const pendingList = expenses.filter(e => !e.paid)
+    const totalPaid = paidList.reduce((s,e) => s+Number(e.value), 0)
+    const totalPending = pendingList.reduce((s,e) => s+Number(e.value), 0)
+    const fmtVal = v => 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
 
     // Category breakdown
     const catBreakdown = CATS.map(cat => ({
