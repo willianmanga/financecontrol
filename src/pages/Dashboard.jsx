@@ -381,216 +381,229 @@ export default function Dashboard({user}) {
   const signOut = async()=>{ await supabase.auth.signOut() }
 
   /* ── EXPORT PDF ── */
-  const exportPDF = () => {
-    const monName = monthLabel(month)
-    const paidList = expenses.filter(e => e.paid)
-    const pendingList = expenses.filter(e => !e.paid)
-    const totalPaid = paidList.reduce((s,e) => s+Number(e.value), 0)
-    const totalPending = pendingList.reduce((s,e) => s+Number(e.value), 0)
-    const fmtVal = v => 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
+  const exportPDF = async () => {
+    notify('Gerando PDF...', 'loading', 5000)
+    try {
+      // Load jsPDF
+      await new Promise((res, rej) => {
+        if (window.jspdf) { res(); return }
+        const s = document.createElement('script')
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+        s.onload = res; s.onerror = rej
+        document.head.appendChild(s)
+      })
 
-    // Category breakdown
-    const catBreakdown = CATS.map(cat => ({
-      name: cat,
-      color: CAT_COLORS[cat],
-      value: expenses.filter(e => e.category === cat).reduce((s,e) => s+Number(e.value), 0),
-      count: expenses.filter(e => e.category === cat).length
-    })).filter(c => c.value > 0).sort((a,b) => b.value - a.value)
+      const { jsPDF } = window.jspdf
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const W = 210, pad = 16
+      const monName = monthLabel(month)
+      const paidList = expenses.filter(e => e.paid)
+      const pendingList = expenses.filter(e => !e.paid)
+      const totalPaid = paidList.reduce((s,e) => s+Number(e.value), 0)
+      const totalPending = pendingList.reduce((s,e) => s+Number(e.value), 0)
+      const pct = total > 0 ? (totalPaid/total)*100 : 0
+      const fmtV = v => 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
+      const catBreakdown = CATS.map(cat => ({
+        name: cat, color: CAT_COLORS[cat],
+        value: expenses.filter(e => e.category===cat).reduce((s,e)=>s+Number(e.value),0),
+        paid: expenses.filter(e => e.category===cat&&e.paid).reduce((s,e)=>s+Number(e.value),0),
+        count: expenses.filter(e => e.category===cat).length
+      })).filter(c => c.value > 0).sort((a,b) => b.value-a.value)
+      const maxCat = catBreakdown.length > 0 ? catBreakdown[0].value : 1
 
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Finly — Relatório ${monName}</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap');
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Outfit',sans-serif;background:#f8faff;color:#0f172a;padding:0}
-  .page{max-width:800px;margin:0 auto;background:#fff;min-height:100vh;padding:0}
-  
-  /* HEADER */
-  .header{background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:36px 48px;color:#fff;position:relative;overflow:hidden}
-  .header::before{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,0.08)}
-  .header::after{content:'';position:absolute;bottom:-40px;left:20%;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,0.05)}
-  .logo-row{display:flex;align-items:center;gap:14px;margin-bottom:20px}
-  .logo-icon{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;letter-spacing:-1px;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.3)}
-  .logo-name{font-size:26px;font-weight:900;letter-spacing:-0.5px}
-  .header-sub{font-size:12px;opacity:0.7;font-family:'JetBrains Mono',monospace;letter-spacing:2px;margin-top:2px}
-  .report-title{font-size:14px;opacity:0.85;font-family:'JetBrains Mono',monospace;letter-spacing:1px}
-  .report-month{font-size:36px;font-weight:900;letter-spacing:-1px;margin-top:4px}
-  .report-user{font-size:12px;opacity:0.65;font-family:'JetBrains Mono',monospace;margin-top:6px}
+      const rgb = hex => [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)]
+      const fill = hex => { const [r,g,b] = rgb(hex); doc.setFillColor(r,g,b) }
+      const draw = hex => { const [r,g,b] = rgb(hex); doc.setDrawColor(r,g,b) }
+      const txt = hex => { const [r,g,b] = rgb(hex); doc.setTextColor(r,g,b) }
+      const rr = (x,y,w,h,r,f,d) => {
+        if(f) fill(f); if(d) draw(d)
+        doc.roundedRect(x,y,w,h,r,r,f&&d?'FD':f?'F':d?'D':'N')
+      }
 
-  /* CONTENT */
-  .content{padding:36px 48px}
-  
-  /* SUMMARY CARDS */
-  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:32px}
-  .card{border-radius:14px;padding:16px;border-top:3px solid}
-  .card-label{font-size:9px;letter-spacing:2px;color:#64748b;font-family:'JetBrains Mono',monospace;text-transform:uppercase;margin-bottom:6px}
-  .card-value{font-size:18px;font-weight:800;letter-spacing:-0.5px}
-  .card-sub{font-size:10px;color:#94a3b8;margin-top:3px;font-family:'JetBrains Mono',monospace}
-  
-  /* PROGRESS BAR */
-  .progress-section{background:#f1f5f9;border-radius:14px;padding:20px 24px;margin-bottom:28px;display:flex;align-items:center;gap:20px}
-  .progress-info{flex:1}
-  .progress-title{font-size:14px;font-weight:700;margin-bottom:4px}
-  .progress-sub{font-size:11px;color:#64748b;font-family:'JetBrains Mono',monospace;margin-bottom:12px}
-  .progress-bar{background:#e2e8f0;border-radius:99px;height:8px;overflow:hidden}
-  .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#6366f1,#818cf8)}
-  .progress-nums{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;font-family:'JetBrains Mono',monospace}
-  .pct-circle{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-weight:800;font-size:15px}
+      // ── HEADER ──
+      const stripes = ['#4338ca','#4740cd','#4b48d0','#5050d3','#5458d6','#5860d9','#5c68dc','#6070df','#6478e2','#6880e5','#6c84e7','#7088e9']
+      stripes.forEach((c,i) => { fill(c); doc.rect(0, i*(42/stripes.length), W, (42/stripes.length)+0.5, 'F') })
+      // logo box
+      fill('#ffffff'); doc.setGState(new doc.GState({opacity:0.18}))
+      rr(pad, 8, 14, 14, 2.5)
+      doc.setGState(new doc.GState({opacity:1}))
+      doc.setFontSize(10); doc.setFont('helvetica','bold'); txt('#ffffff')
+      doc.text('F', pad+7, 17, {align:'center'})
+      // brand
+      doc.setFontSize(16); doc.setFont('helvetica','bold'); txt('#ffffff')
+      doc.text('Finly', pad+18, 16)
+      doc.setFontSize(6); doc.setFont('helvetica','normal'); txt('#ffffffaa')
+      doc.text('PERSONAL FINANCE', pad+18, 21)
+      // month
+      doc.setFontSize(22); doc.setFont('helvetica','bold'); txt('#ffffff')
+      doc.text(monName, W-pad, 17, {align:'right'})
+      doc.setFontSize(6.5); doc.setFont('helvetica','normal'); txt('#ffffffbb')
+      doc.text('RELATÓRIO MENSAL', W-pad, 23, {align:'right'})
+      doc.text(user.email, W-pad, 28, {align:'right'})
+      // divider
+      doc.setGState(new doc.GState({opacity:0.2})); draw('#ffffff')
+      doc.setLineWidth(0.3); doc.line(pad, 37, W-pad, 37)
+      doc.setGState(new doc.GState({opacity:1}))
 
-  /* CATEGORIES */
-  .section-title{font-size:10px;letter-spacing:2px;color:#64748b;font-family:'JetBrains Mono',monospace;text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #e2e8f0}
-  .cats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:28px}
-  .cat-card{border-radius:10px;padding:12px 14px}
-  .cat-name{font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:1px;margin-bottom:5px}
-  .cat-value{font-size:14px;font-weight:800;margin-bottom:6px;font-family:'JetBrains Mono',monospace}
-  .cat-bar{height:3px;border-radius:99px;background:#e2e8f0;overflow:hidden}
-  .cat-fill{height:100%;border-radius:99px}
-  .cat-count{font-size:9px;color:#94a3b8;margin-top:4px;font-family:'JetBrains Mono',monospace}
+      let y = 46
 
-  /* EXPENSES TABLE */
-  .table-section{margin-bottom:28px}
-  table{width:100%;border-collapse:collapse}
-  th{text-align:left;font-size:9px;letter-spacing:1.5px;color:#94a3b8;font-family:'JetBrains Mono',monospace;font-weight:700;padding:8px 12px;border-bottom:1px solid #e2e8f0}
-  td{padding:10px 12px;font-size:12px;border-bottom:1px solid #f1f5f9}
-  tr:last-child td{border-bottom:none}
-  .status-paid{background:#dcfce7;color:#16a34a;padding:3px 8px;border-radius:20px;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace}
-  .status-pending{background:#fef2f2;color:#dc2626;padding:3px 8px;border-radius:20px;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace}
-  .cat-pill{padding:2px 7px;border-radius:20px;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace}
-  .exp-name{font-weight:600}
-  .exp-value{font-weight:800;font-family:'JetBrains Mono',monospace;text-align:right}
-  tr:nth-child(even){background:#fafbff}
+      // ── CARDS ──
+      const cards = [
+        {label:'RECEITAS', val:fmtV(totalIncome), sub:'salário + benefícios', bg:'#f0fdf4', ac:'#10b981'},
+        {label:'DESPESAS', val:fmtV(total), sub:expenses.length+' lançamentos', bg:'#fef2f2', ac:'#f43f5e'},
+        {label:'PENDENTE', val:fmtV(totalPending), sub:pendingList.length+' não pagas', bg:'#fffbeb', ac:'#f59e0b'},
+        {label:'SALDO', val:(balance>=0?'':'-')+fmtV(Math.abs(balance)), sub:balance>=0?'disponível':'déficit', bg:balance>=0?'#f0f9ff':'#fef2f2', ac:balance>=0?'#6366f1':'#f43f5e'},
+      ]
+      const cw = (W-pad*2-9)/4
+      cards.forEach((c,i) => {
+        const cx = pad+i*(cw+3)
+        rr(cx, y, cw, 22, 2, c.bg, null)
+        const [ar,ag,ab] = rgb(c.ac); doc.setFillColor(ar,ag,ab)
+        doc.rect(cx, y, 1.5, 22, 'F')
+        doc.setFontSize(5.5); doc.setFont('helvetica','bold'); txt(c.ac)
+        doc.text(c.label, cx+4, y+5.5)
+        doc.setFontSize(8.5); doc.setFont('helvetica','bold'); txt(c.ac)
+        doc.text(c.val, cx+4, y+12.5, {maxWidth:cw-5})
+        doc.setFontSize(5); doc.setFont('helvetica','normal'); txt('#94a3b8')
+        doc.text(c.sub, cx+4, y+18.5)
+      })
+      y += 27
 
-  /* FOOTER */
-  .footer{background:#f8faff;border-top:1px solid #e2e8f0;padding:20px 48px;display:flex;justify-content:space-between;align-items:center}
-  .footer-brand{font-size:14px;font-weight:800;background:linear-gradient(90deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-  .footer-info{font-size:10px;color:#94a3b8;font-family:'JetBrains Mono',monospace;text-align:right}
+      // ── PROGRESS ──
+      if(expenses.length > 0) {
+        rr(pad, y, W-pad*2, 18, 2.5, '#f8f9ff', '#e8eaf6')
+        doc.setFillColor(99,102,241); doc.circle(pad+11, y+9, 7, 'F')
+        doc.setFontSize(7); doc.setFont('helvetica','bold'); txt('#ffffff')
+        doc.text(Math.round(pct)+'%', pad+11, y+9.5, {align:'center'})
+        doc.setFontSize(9.5); doc.setFont('helvetica','bold'); txt('#0f172a')
+        doc.text('Progresso de Pagamentos', pad+22, y+6.5)
+        doc.setFontSize(6.5); doc.setFont('helvetica','normal'); txt('#64748b')
+        doc.text(paidList.length+' de '+expenses.length+' despesas pagas · '+monName, pad+22, y+11)
+        rr(pad+22, y+13, W-pad*2-26, 3, 1.5, '#e2e8f0', null)
+        if(pct>0){ doc.setFillColor(99,102,241); doc.roundedRect(pad+22, y+13, (W-pad*2-26)*(pct/100), 3, 1.5, 1.5, 'F') }
+        doc.setFontSize(6); doc.setFont('helvetica','bold')
+        txt('#10b981'); doc.text('✓ Pago: '+fmtV(totalPaid), pad+22, y+19)
+        txt('#f43f5e'); doc.text('Pendente: '+fmtV(totalPending), W-pad, y+19, {align:'right'})
+        y += 23
+      }
 
-  @media print{body{background:#fff}.page{box-shadow:none}}
-</style>
-</head>
-<body>
-<div class="page">
+      // ── TWO COLS ──
+      const colW = (W-pad*2-5)/2
+      const c1 = pad, c2 = pad+colW+5
+      const catH = Math.max(catBreakdown.length*13+16, 40)
 
-  <!-- HEADER -->
-  <div class="header">
-    <div class="logo-row">
-      <div class="logo-icon">F</div>
-      <div>
-        <div class="logo-name">Finly</div>
-        <div class="header-sub">PERSONAL FINANCE ✦</div>
-      </div>
-    </div>
-    <div class="report-title">RELATÓRIO MENSAL</div>
-    <div class="report-month">${monName}</div>
-    <div class="report-user">${user.email}</div>
-  </div>
+      // Categories col
+      rr(c1, y, colW, catH, 2.5, '#ffffff', '#e2e8f0')
+      doc.setFontSize(5.5); doc.setFont('helvetica','bold'); txt('#94a3b8')
+      doc.text('DESPESAS POR CATEGORIA', c1+4, y+6)
+      draw('#f1f5f9'); doc.setLineWidth(0.2); doc.line(c1+4, y+8, c1+colW-4, y+8)
+      let yc = y+13
+      catBreakdown.forEach(cat => {
+        const [cr,cg,cb] = rgb(cat.color); doc.setTextColor(cr,cg,cb)
+        doc.setFontSize(7); doc.setFont('helvetica','bold')
+        doc.text(cat.name, c1+4, yc)
+        txt('#0f172a'); doc.text(fmtV(cat.value), c1+colW-4, yc, {align:'right'})
+        rr(c1+4, yc+1.5, colW-8, 2.5, 1, '#f1f5f9', null)
+        if(cat.value>0){ doc.setFillColor(cr,cg,cb); doc.roundedRect(c1+4, yc+1.5, (colW-8)*(cat.value/maxCat), 2.5, 1,1,'F') }
+        doc.setFontSize(5); doc.setFont('helvetica','normal'); txt('#94a3b8')
+        doc.text(cat.count+' itens · '+(cat.value>0?Math.round((cat.paid/cat.value)*100):0)+'% pago', c1+4, yc+6.5)
+        yc += 13
+      })
 
-  <div class="content">
+      // Income col
+      const incH = catH
+      rr(c2, y, colW, incH, 2.5, '#ffffff', '#e2e8f0')
+      doc.setFontSize(5.5); doc.setFont('helvetica','bold'); txt('#94a3b8')
+      doc.text('COMPOSIÇÃO DAS RECEITAS', c2+4, y+6)
+      draw('#f1f5f9'); doc.line(c2+4, y+8, c2+colW-4, y+8)
+      let yi = y+13
+      ;[['Salário', income.salary, '#10b981'],['VT + VR', income.vtvr, '#3b82f6'],['Comissão', income.commission, '#f59e0b']].forEach(([lb,v,c]) => {
+        const [ir,ig,ib] = rgb(c)
+        doc.setFontSize(7); doc.setFont('helvetica','normal'); txt('#64748b')
+        doc.text(lb, c2+4, yi)
+        doc.setTextColor(ir,ig,ib); doc.setFont('helvetica','bold')
+        doc.text(fmtV(v), c2+colW-4, yi, {align:'right'})
+        rr(c2+4, yi+1.5, colW-8, 2.5, 1, '#f1f5f9', null)
+        if(v>0&&totalIncome>0){ doc.setFillColor(ir,ig,ib); doc.roundedRect(c2+4, yi+1.5, (colW-8)*(v/totalIncome), 2.5, 1,1,'F') }
+        yi += 11
+      })
+      draw('#f1f5f9'); doc.line(c2+4, yi+1, c2+colW-4, yi+1)
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); txt('#94a3b8')
+      doc.text('TOTAL', c2+4, yi+5.5)
+      txt('#10b981'); doc.text(fmtV(totalIncome), c2+colW-4, yi+5.5, {align:'right'})
 
-    <!-- SUMMARY CARDS -->
-    <div class="cards">
-      <div class="card" style="background:#f0fdf4;border-color:#10b981">
-        <div class="card-label">Receitas</div>
-        <div class="card-value" style="color:#10b981">${fmtVal(totalIncome)}</div>
-        <div class="card-sub">salário + benefícios</div>
-      </div>
-      <div class="card" style="background:#fef2f2;border-color:#f43f5e">
-        <div class="card-label">Despesas</div>
-        <div class="card-value" style="color:#f43f5e">${fmtVal(total)}</div>
-        <div class="card-sub">${expenses.length} lançamentos</div>
-      </div>
-      <div class="card" style="background:#fffbeb;border-color:#f59e0b">
-        <div class="card-label">Pendente</div>
-        <div class="card-value" style="color:#f59e0b">${fmtVal(totalPending)}</div>
-        <div class="card-sub">${pendingList.length} não pagas</div>
-      </div>
-      <div class="card" style="background:${balance>=0?'#f0f9ff':'#fef2f2'};border-color:${balance>=0?'#6366f1':'#f43f5e'}">
-        <div class="card-label">Saldo</div>
-        <div class="card-value" style="color:${balance>=0?'#6366f1':'#f43f5e'}">${balance>=0?'':'-'}${fmtVal(Math.abs(balance))}</div>
-        <div class="card-sub">${balance>=0?'disponível':'déficit'}</div>
-      </div>
-    </div>
+      y += catH + 8
 
-    <!-- PROGRESS -->
-    ${expenses.length > 0 ? `
-    <div class="progress-section">
-      <div class="pct-circle">${Math.round(pct)}%</div>
-      <div class="progress-info">
-        <div class="progress-title">Progresso de Pagamentos</div>
-        <div class="progress-sub">${paidList.length} de ${expenses.length} despesas pagas</div>
-        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-        <div class="progress-nums">
-          <span style="color:#10b981">✓ Pago: ${fmtVal(totalPaid)}</span>
-          <span style="color:#f43f5e">⏳ Pendente: ${fmtVal(totalPending)}</span>
-        </div>
-      </div>
-    </div>` : ''}
+      // ── TABLE ──
+      if(expenses.length > 0) {
+        if(y > 240) { doc.addPage(); y = 16 }
+        // header
+        rr(pad, y, W-pad*2, 8, 2, '#f0f2ff', null)
+        doc.setFontSize(5.5); doc.setFont('helvetica','bold'); txt('#94a3b8')
+        const cols = [[pad+3,'DESCRIÇÃO'],[pad+75,'CATEGORIA'],[pad+103,'PARCELA'],[W-pad-26,'VALOR',true],[W-pad-3,'STATUS',true]]
+        cols.forEach(([x,lb,right]) => doc.text(lb, x, y+5.5, right?{align:'right'}:{}))
+        y += 9
 
-    <!-- CATEGORIES -->
-    ${catBreakdown.length > 0 ? `
-    <div class="section-title">DESPESAS POR CATEGORIA</div>
-    <div class="cats">
-      ${catBreakdown.map(cat => {
-        const p = cat.value > 0 ? (expenses.filter(e=>e.category===cat.name&&e.paid).reduce((s,e)=>s+Number(e.value),0) / cat.value * 100) : 0
-        return `<div class="cat-card" style="background:${cat.color}10;border:1px solid ${cat.color}25">
-          <div class="cat-name" style="color:${cat.color}">${cat.name.toUpperCase()}</div>
-          <div class="cat-value" style="color:#0f172a">${fmtVal(cat.value)}</div>
-          <div class="cat-bar"><div class="cat-fill" style="width:${p}%;background:${cat.color}"></div></div>
-          <div class="cat-count">${cat.count} itens · ${Math.round(p)}% pago</div>
-        </div>`
-      }).join('')}
-    </div>` : ''}
+        expenses.forEach((e, idx) => {
+          if(y > 270) { 
+            doc.addPage(); y = 16
+            rr(pad, y, W-pad*2, 8, 2, '#f0f2ff', null)
+            cols.forEach(([x,lb,right]) => doc.text(lb, x, y+5.5, right?{align:'right'}:{}))
+            y += 9
+          }
+          if(idx%2===0){ fill('#fafbff'); doc.rect(pad, y-0.5, W-pad*2, 9, 'F') }
+          const ac = e.paid ? '#10b981' : '#f43f5e'
+          const [ar2,ag2,ab2] = rgb(ac)
+          const catC = CAT_COLORS[e.category]||'#94a3b8'
+          const [cr,cg,cb] = rgb(catC)
 
-    <!-- EXPENSES TABLE -->
-    ${expenses.length > 0 ? `
-    <div class="table-section">
-      <div class="section-title">TODAS AS DESPESAS</div>
-      <table>
-        <thead>
-          <tr>
-            <th>DESCRIÇÃO</th>
-            <th>CATEGORIA</th>
-            <th>PARCELA</th>
-            <th style="text-align:right">VALOR</th>
-            <th style="text-align:center">STATUS</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${expenses.map(e => `
-          <tr>
-            <td class="exp-name">${e.name}</td>
-            <td><span class="cat-pill" style="background:${CAT_COLORS[e.category]||'#94a3b8'}18;color:${CAT_COLORS[e.category]||'#94a3b8'}">${e.category}</span></td>
-            <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#94a3b8">${e.parcelas_total>1?e.parcela_atual+'/'+e.parcelas_total:'—'}</td>
-            <td class="exp-value" style="color:${e.paid?'#10b981':'#f43f5e'}">${fmtVal(e.value)}</td>
-            <td style="text-align:center"><span class="${e.paid?'status-paid':'status-pending'}">${e.paid?'PAGO':'PENDENTE'}</span></td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>` : '<div style="text-align:center;padding:40px;color:#94a3b8;font-family:JetBrains Mono,monospace">Nenhuma despesa em '+monName+'</div>'}
+          doc.setFontSize(7); doc.setFont('helvetica','bold'); txt('#0f172a')
+          const nm = e.name.length>30?e.name.slice(0,30)+'…':e.name
+          doc.text(nm, pad+3, y+5)
 
-  </div>
+          doc.setGState(new doc.GState({opacity:0.12})); doc.setFillColor(cr,cg,cb)
+          doc.roundedRect(pad+73, y+1, 24, 5.5, 1.5, 1.5, 'F')
+          doc.setGState(new doc.GState({opacity:1}))
+          doc.setFontSize(5.5); doc.setFont('helvetica','bold'); doc.setTextColor(cr,cg,cb)
+          doc.text(e.category, pad+85, y+5, {align:'center'})
 
-  <!-- FOOTER -->
-  <div class="footer">
-    <div class="footer-brand">Finly</div>
-    <div class="footer-info">
-      Gerado em ${new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'long',year:'numeric'})}<br>
-      finly.api.br
-    </div>
-  </div>
+          doc.setFontSize(6); doc.setFont('helvetica','normal'); txt('#94a3b8')
+          doc.text(e.parcelas_total>1?e.parcela_atual+'/'+e.parcelas_total:'—', pad+108, y+5, {align:'center'})
 
-</div>
-<script>window.onload=()=>window.print()</script>
-</body>
-</html>`
+          doc.setFontSize(7); doc.setFont('helvetica','bold'); txt(ac)
+          doc.text(fmtV(e.value), W-pad-26, y+5, {align:'right'})
 
-    const win = window.open('', '_blank')
-    win.document.write(html)
-    win.document.close()
+          doc.setGState(new doc.GState({opacity:0.12})); doc.setFillColor(ar2,ag2,ab2)
+          doc.roundedRect(W-pad-20, y+1, 18, 5.5, 2, 2, 'F')
+          doc.setGState(new doc.GState({opacity:1}))
+          doc.setFontSize(5.5); doc.setFont('helvetica','bold'); txt(ac)
+          doc.text(e.paid?'PAGO':'PENDENTE', W-pad-11, y+5, {align:'center'})
+
+          y += 9
+        })
+      }
+
+      // ── FOOTER all pages ──
+      const pages = doc.getNumberOfPages()
+      for(let p=1; p<=pages; p++) {
+        doc.setPage(p)
+        fill('#f8faff'); doc.rect(0, 285, W, 12, 'F')
+        draw('#e2e8f0'); doc.setLineWidth(0.2); doc.line(0, 285, W, 285)
+        doc.setFontSize(8); doc.setFont('helvetica','bold'); txt('#6366f1')
+        doc.text('Finly', pad, 292)
+        doc.setFontSize(6); doc.setFont('helvetica','normal'); txt('#94a3b8')
+        doc.text('finly.api.br · '+new Date().toLocaleDateString('pt-BR'), W/2, 292, {align:'center'})
+        doc.text('Página '+p+' de '+pages, W-pad, 292, {align:'right'})
+      }
+
+      doc.save('Finly-'+monName.replace('/','_')+'.pdf')
+      notify('PDF baixado! ✓', 'success')
+    } catch(err) {
+      console.error(err)
+      notify('Erro ao gerar PDF', 'error')
+    }
   }
+
 
   /* ── COMPUTEDS ── */
   const total=expenses.reduce((s,e)=>s+Number(e.value),0)
