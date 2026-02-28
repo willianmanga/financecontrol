@@ -380,6 +380,218 @@ export default function Dashboard({user}) {
 
   const signOut = async()=>{ await supabase.auth.signOut() }
 
+  /* ── EXPORT PDF ── */
+  const exportPDF = () => {
+    const monName = monthLabel(month)
+    const paidList = expenses.filter(e => e.paid)
+    const pendingList = expenses.filter(e => !e.paid)
+    const totalPaid = paidList.reduce((s,e) => s+Number(e.value), 0)
+    const totalPending = pendingList.reduce((s,e) => s+Number(e.value), 0)
+    const fmtVal = v => 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
+
+    // Category breakdown
+    const catBreakdown = CATS.map(cat => ({
+      name: cat,
+      color: CAT_COLORS[cat],
+      value: expenses.filter(e => e.category === cat).reduce((s,e) => s+Number(e.value), 0),
+      count: expenses.filter(e => e.category === cat).length
+    })).filter(c => c.value > 0).sort((a,b) => b.value - a.value)
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Finly — Relatório ${monName}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Outfit',sans-serif;background:#f8faff;color:#0f172a;padding:0}
+  .page{max-width:800px;margin:0 auto;background:#fff;min-height:100vh;padding:0}
+  
+  /* HEADER */
+  .header{background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:36px 48px;color:#fff;position:relative;overflow:hidden}
+  .header::before{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,0.08)}
+  .header::after{content:'';position:absolute;bottom:-40px;left:20%;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,0.05)}
+  .logo-row{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+  .logo-icon{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;letter-spacing:-1px;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.3)}
+  .logo-name{font-size:26px;font-weight:900;letter-spacing:-0.5px}
+  .header-sub{font-size:12px;opacity:0.7;font-family:'JetBrains Mono',monospace;letter-spacing:2px;margin-top:2px}
+  .report-title{font-size:14px;opacity:0.85;font-family:'JetBrains Mono',monospace;letter-spacing:1px}
+  .report-month{font-size:36px;font-weight:900;letter-spacing:-1px;margin-top:4px}
+  .report-user{font-size:12px;opacity:0.65;font-family:'JetBrains Mono',monospace;margin-top:6px}
+
+  /* CONTENT */
+  .content{padding:36px 48px}
+  
+  /* SUMMARY CARDS */
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:32px}
+  .card{border-radius:14px;padding:16px;border-top:3px solid}
+  .card-label{font-size:9px;letter-spacing:2px;color:#64748b;font-family:'JetBrains Mono',monospace;text-transform:uppercase;margin-bottom:6px}
+  .card-value{font-size:18px;font-weight:800;letter-spacing:-0.5px}
+  .card-sub{font-size:10px;color:#94a3b8;margin-top:3px;font-family:'JetBrains Mono',monospace}
+  
+  /* PROGRESS BAR */
+  .progress-section{background:#f1f5f9;border-radius:14px;padding:20px 24px;margin-bottom:28px;display:flex;align-items:center;gap:20px}
+  .progress-info{flex:1}
+  .progress-title{font-size:14px;font-weight:700;margin-bottom:4px}
+  .progress-sub{font-size:11px;color:#64748b;font-family:'JetBrains Mono',monospace;margin-bottom:12px}
+  .progress-bar{background:#e2e8f0;border-radius:99px;height:8px;overflow:hidden}
+  .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#6366f1,#818cf8)}
+  .progress-nums{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;font-family:'JetBrains Mono',monospace}
+  .pct-circle{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-weight:800;font-size:15px}
+
+  /* CATEGORIES */
+  .section-title{font-size:10px;letter-spacing:2px;color:#64748b;font-family:'JetBrains Mono',monospace;text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #e2e8f0}
+  .cats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:28px}
+  .cat-card{border-radius:10px;padding:12px 14px}
+  .cat-name{font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:1px;margin-bottom:5px}
+  .cat-value{font-size:14px;font-weight:800;margin-bottom:6px;font-family:'JetBrains Mono',monospace}
+  .cat-bar{height:3px;border-radius:99px;background:#e2e8f0;overflow:hidden}
+  .cat-fill{height:100%;border-radius:99px}
+  .cat-count{font-size:9px;color:#94a3b8;margin-top:4px;font-family:'JetBrains Mono',monospace}
+
+  /* EXPENSES TABLE */
+  .table-section{margin-bottom:28px}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:9px;letter-spacing:1.5px;color:#94a3b8;font-family:'JetBrains Mono',monospace;font-weight:700;padding:8px 12px;border-bottom:1px solid #e2e8f0}
+  td{padding:10px 12px;font-size:12px;border-bottom:1px solid #f1f5f9}
+  tr:last-child td{border-bottom:none}
+  .status-paid{background:#dcfce7;color:#16a34a;padding:3px 8px;border-radius:20px;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace}
+  .status-pending{background:#fef2f2;color:#dc2626;padding:3px 8px;border-radius:20px;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace}
+  .cat-pill{padding:2px 7px;border-radius:20px;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace}
+  .exp-name{font-weight:600}
+  .exp-value{font-weight:800;font-family:'JetBrains Mono',monospace;text-align:right}
+  tr:nth-child(even){background:#fafbff}
+
+  /* FOOTER */
+  .footer{background:#f8faff;border-top:1px solid #e2e8f0;padding:20px 48px;display:flex;justify-content:space-between;align-items:center}
+  .footer-brand{font-size:14px;font-weight:800;background:linear-gradient(90deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .footer-info{font-size:10px;color:#94a3b8;font-family:'JetBrains Mono',monospace;text-align:right}
+
+  @media print{body{background:#fff}.page{box-shadow:none}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo-row">
+      <div class="logo-icon">F</div>
+      <div>
+        <div class="logo-name">Finly</div>
+        <div class="header-sub">PERSONAL FINANCE ✦</div>
+      </div>
+    </div>
+    <div class="report-title">RELATÓRIO MENSAL</div>
+    <div class="report-month">${monName}</div>
+    <div class="report-user">${user.email}</div>
+  </div>
+
+  <div class="content">
+
+    <!-- SUMMARY CARDS -->
+    <div class="cards">
+      <div class="card" style="background:#f0fdf4;border-color:#10b981">
+        <div class="card-label">Receitas</div>
+        <div class="card-value" style="color:#10b981">${fmtVal(totalIncome)}</div>
+        <div class="card-sub">salário + benefícios</div>
+      </div>
+      <div class="card" style="background:#fef2f2;border-color:#f43f5e">
+        <div class="card-label">Despesas</div>
+        <div class="card-value" style="color:#f43f5e">${fmtVal(total)}</div>
+        <div class="card-sub">${expenses.length} lançamentos</div>
+      </div>
+      <div class="card" style="background:#fffbeb;border-color:#f59e0b">
+        <div class="card-label">Pendente</div>
+        <div class="card-value" style="color:#f59e0b">${fmtVal(totalPending)}</div>
+        <div class="card-sub">${pendingList.length} não pagas</div>
+      </div>
+      <div class="card" style="background:${balance>=0?'#f0f9ff':'#fef2f2'};border-color:${balance>=0?'#6366f1':'#f43f5e'}">
+        <div class="card-label">Saldo</div>
+        <div class="card-value" style="color:${balance>=0?'#6366f1':'#f43f5e'}">${balance>=0?'':'-'}${fmtVal(Math.abs(balance))}</div>
+        <div class="card-sub">${balance>=0?'disponível':'déficit'}</div>
+      </div>
+    </div>
+
+    <!-- PROGRESS -->
+    ${expenses.length > 0 ? `
+    <div class="progress-section">
+      <div class="pct-circle">${Math.round(pct)}%</div>
+      <div class="progress-info">
+        <div class="progress-title">Progresso de Pagamentos</div>
+        <div class="progress-sub">${paidList.length} de ${expenses.length} despesas pagas</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="progress-nums">
+          <span style="color:#10b981">✓ Pago: ${fmtVal(totalPaid)}</span>
+          <span style="color:#f43f5e">⏳ Pendente: ${fmtVal(totalPending)}</span>
+        </div>
+      </div>
+    </div>` : ''}
+
+    <!-- CATEGORIES -->
+    ${catBreakdown.length > 0 ? `
+    <div class="section-title">DESPESAS POR CATEGORIA</div>
+    <div class="cats">
+      ${catBreakdown.map(cat => {
+        const p = cat.value > 0 ? (expenses.filter(e=>e.category===cat.name&&e.paid).reduce((s,e)=>s+Number(e.value),0) / cat.value * 100) : 0
+        return `<div class="cat-card" style="background:${cat.color}10;border:1px solid ${cat.color}25">
+          <div class="cat-name" style="color:${cat.color}">${cat.name.toUpperCase()}</div>
+          <div class="cat-value" style="color:#0f172a">${fmtVal(cat.value)}</div>
+          <div class="cat-bar"><div class="cat-fill" style="width:${p}%;background:${cat.color}"></div></div>
+          <div class="cat-count">${cat.count} itens · ${Math.round(p)}% pago</div>
+        </div>`
+      }).join('')}
+    </div>` : ''}
+
+    <!-- EXPENSES TABLE -->
+    ${expenses.length > 0 ? `
+    <div class="table-section">
+      <div class="section-title">TODAS AS DESPESAS</div>
+      <table>
+        <thead>
+          <tr>
+            <th>DESCRIÇÃO</th>
+            <th>CATEGORIA</th>
+            <th>PARCELA</th>
+            <th style="text-align:right">VALOR</th>
+            <th style="text-align:center">STATUS</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${expenses.map(e => `
+          <tr>
+            <td class="exp-name">${e.name}</td>
+            <td><span class="cat-pill" style="background:${CAT_COLORS[e.category]||'#94a3b8'}18;color:${CAT_COLORS[e.category]||'#94a3b8'}">${e.category}</span></td>
+            <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#94a3b8">${e.parcelas_total>1?e.parcela_atual+'/'+e.parcelas_total:'—'}</td>
+            <td class="exp-value" style="color:${e.paid?'#10b981':'#f43f5e'}">${fmtVal(e.value)}</td>
+            <td style="text-align:center"><span class="${e.paid?'status-paid':'status-pending'}">${e.paid?'PAGO':'PENDENTE'}</span></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : '<div style="text-align:center;padding:40px;color:#94a3b8;font-family:JetBrains Mono,monospace">Nenhuma despesa em '+monName+'</div>'}
+
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="footer-brand">Finly</div>
+    <div class="footer-info">
+      Gerado em ${new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'long',year:'numeric'})}<br>
+      finly.api.br
+    </div>
+  </div>
+
+</div>
+<script>window.onload=()=>window.print()</script>
+</body>
+</html>`
+
+    const win = window.open('', '_blank')
+    win.document.write(html)
+    win.document.close()
+  }
+
   /* ── COMPUTEDS ── */
   const total=expenses.reduce((s,e)=>s+Number(e.value),0)
   const paid=expenses.filter(e=>e.paid).reduce((s,e)=>s+Number(e.value),0)
@@ -612,6 +824,9 @@ export default function Dashboard({user}) {
               </div>
               <div style={{display:'flex',gap:8}}>
                 <button style={{...G.fBtn(false),padding:'7px 12px'}} onClick={loadExpenses}>↺</button>
+                <button style={{...G.fBtn(false),padding:'7px 12px',color:'#10b981',border:'1px solid rgba(16,185,129,0.3)',background:'rgba(16,185,129,0.08)'}} onClick={exportPDF} title="Exportar PDF">
+                  {isMobile?'PDF':'↓ PDF'}
+                </button>
                 <button style={{...G.btn('linear-gradient(135deg,#6366f1,#8b5cf6)'),boxShadow:'0 4px 14px rgba(99,102,241,0.3)'}} onClick={()=>setShowAdd(v=>!v)}>
                   {showAdd?'✕ Cancelar':'+ Adicionar'}
                 </button>
