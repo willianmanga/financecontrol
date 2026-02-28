@@ -419,7 +419,12 @@ export default function Dashboard({user}) {
         if(w <= 0 || h <= 0) return
         const safeR = Math.min(r, w/2, h/2)
         if(f) fill(f); if(d) draw(d)
-        doc.roundedRect(x,y,w,h,safeR,safeR,f&&d?'FD':f?'F':d?'D':'N')
+        safeRR(x,y,w,h,safeR,safeR,f&&d?'FD':f?'F':d?'D':'N')
+      }
+      const safeRR = (x,y,w,h,r1,r2,style) => {
+        if(w <= 0 || h <= 0) return
+        const sr = Math.min(r1, w/2, h/2)
+        safeRR(x,y,w,h,sr,sr,style)
       }
 
       // ── HEADER ──
@@ -482,7 +487,7 @@ export default function Dashboard({user}) {
         doc.setFontSize(6.5); doc.setFont('helvetica','normal'); txt('#64748b')
         doc.text(paidList.length+' de '+expenses.length+' despesas pagas · '+monName, pad+22, y+11)
         rr(pad+22, y+13, W-pad*2-26, 3, 1.5, '#e2e8f0', null)
-        if(pct>0){ const pw=Math.max(0.1,(W-pad*2-26)*(pct/100)); doc.setFillColor(99,102,241); doc.roundedRect(pad+22, y+13, pw, 3, Math.min(1.5,pw/2), 1.5, 'F') }
+        if(pct>0){ const pw=Math.max(0.1,(W-pad*2-26)*(pct/100)); doc.setFillColor(99,102,241); safeRR(pad+22, y+13, pw, 3, Math.min(1.5,pw/2), 1.5, 'F') }
         doc.setFontSize(6); doc.setFont('helvetica','bold')
         txt('#10b981'); doc.text('✓ Pago: '+fmtV(totalPaid), pad+22, y+19)
         txt('#f43f5e'); doc.text('Pendente: '+fmtV(totalPending), W-pad, y+19, {align:'right'})
@@ -506,7 +511,7 @@ export default function Dashboard({user}) {
         doc.text(cat.name, c1+4, yc)
         txt('#0f172a'); doc.text(fmtV(cat.value), c1+colW-4, yc, {align:'right'})
         rr(c1+4, yc+1.5, colW-8, 2.5, 1, '#f1f5f9', null)
-        if(cat.value>0){ const bw=Math.max(0.1,(colW-8)*(cat.value/maxCat)); doc.setFillColor(cr,cg,cb); doc.roundedRect(c1+4, yc+1.5, bw, 2.5, Math.min(1,bw/2),1,'F') }
+        if(cat.value>0){ const bw=Math.max(0.1,(colW-8)*(cat.value/maxCat)); doc.setFillColor(cr,cg,cb); safeRR(c1+4, yc+1.5, bw, 2.5, Math.min(1,bw/2),1,'F') }
         doc.setFontSize(5); doc.setFont('helvetica','normal'); txt('#94a3b8')
         doc.text(cat.count+' itens · '+(cat.value>0?Math.round((cat.paid/cat.value)*100):0)+'% pago', c1+4, yc+6.5)
         yc += 13
@@ -526,7 +531,7 @@ export default function Dashboard({user}) {
         doc.setTextColor(ir,ig,ib); doc.setFont('helvetica','bold')
         doc.text(fmtV(v), c2+colW-4, yi, {align:'right'})
         rr(c2+4, yi+1.5, colW-8, 2.5, 1, '#f1f5f9', null)
-        if(v>0&&totalIncome>0){ const iw=Math.max(0.1,(colW-8)*(v/totalIncome)); doc.setFillColor(ir,ig,ib); doc.roundedRect(c2+4, yi+1.5, iw, 2.5, Math.min(1,iw/2),1,'F') }
+        if(v>0&&totalIncome>0){ const iw=Math.max(0.1,(colW-8)*(v/totalIncome)); doc.setFillColor(ir,ig,ib); safeRR(c2+4, yi+1.5, iw, 2.5, Math.min(1,iw/2),1,'F') }
         yi += 11
       })
       draw('#f1f5f9'); doc.line(c2+4, yi+1, c2+colW-4, yi+1)
@@ -564,7 +569,7 @@ export default function Dashboard({user}) {
           doc.text(nm, pad+3, y+5)
 
           doc.setGState(new doc.GState({opacity:0.12})); doc.setFillColor(cr,cg,cb)
-          doc.roundedRect(pad+73, y+1, 24, 5.5, 1.5, 1.5, 'F')
+          safeRR(pad+73, y+1, 24, 5.5, 1.5, 1.5, 'F')
           doc.setGState(new doc.GState({opacity:1}))
           doc.setFontSize(5.5); doc.setFont('helvetica','bold'); doc.setTextColor(cr,cg,cb)
           doc.text(e.category, pad+85, y+5, {align:'center'})
@@ -576,7 +581,7 @@ export default function Dashboard({user}) {
           doc.text(fmtV(e.value), W-pad-26, y+5, {align:'right'})
 
           doc.setGState(new doc.GState({opacity:0.12})); doc.setFillColor(ar2,ag2,ab2)
-          doc.roundedRect(W-pad-20, y+1, 18, 5.5, 2, 2, 'F')
+          safeRR(W-pad-20, y+1, 18, 5.5, 2, 2, 'F')
           doc.setGState(new doc.GState({opacity:1}))
           doc.setFontSize(5.5); doc.setFont('helvetica','bold'); txt(ac)
           doc.text(e.paid?'PAGO':'PENDENTE', W-pad-11, y+5, {align:'center'})
