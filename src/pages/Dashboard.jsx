@@ -190,6 +190,20 @@ function AlertBanner({expenses, month, onGoToExpenses, T, isDark}) {
   return null
 }
 
+function ThemeToggle({mode,setMode,isDark,T}) {
+  const opts=[['dark','🌙'],['light','☀️'],['system','💻']]
+  return (
+    <div style={{display:'flex',gap:4,background:T.input,borderRadius:10,padding:3,border:`1px solid ${T.inputBorder}`}}>
+      {opts.map(([m,ic])=>(
+        <button key={m} onClick={()=>setMode(m)}
+          style={{padding:'5px 8px',borderRadius:7,border:'none',cursor:'pointer',fontSize:12,background:mode===m?(isDark?'rgba(99,102,241,0.3)':'rgba(99,102,241,0.15)'):'transparent',transition:'background .2s',fontFamily:'inherit'}}>
+          {ic}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 /* ── DASHBOARD ── */
 export default function Dashboard({user}) {
   const {mode,setMode,isDark,T} = useTheme()
