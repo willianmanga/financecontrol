@@ -434,7 +434,7 @@ export default function Dashboard({user}) {
       doc.setFontSize(22); doc.setFont('helvetica','bold'); txt('#ffffff')
       doc.text(monName, W-pad, 17, {align:'right'})
       doc.setFontSize(6.5); doc.setFont('helvetica','normal'); txt('#ffffffbb')
-      doc.text('RELATORIO MENSAL', W-pad, 23, {align:'right'})
+      doc.text('RELATÓRIO MENSAL', W-pad, 23, {align:'right'})
       doc.text(user.email, W-pad, 28, {align:'right'})
       draw('#ffffff'); doc.setLineWidth(0.3)
       doc.setGState(new doc.GState({opacity:0.2}))
@@ -445,10 +445,10 @@ export default function Dashboard({user}) {
 
       // ── CARDS ──
       const cards = [
-        {label:'RECEITAS', val:fmtV(totalIncome), sub:'salario + beneficios', bg:'#f0fdf4', ac:'#10b981'},
-        {label:'DESPESAS', val:fmtV(total), sub:expenses.length+' lancamentos', bg:'#fef2f2', ac:'#f43f5e'},
-        {label:'PENDENTE', val:fmtV(totalPending), sub:pendingList.length+' nao pagas', bg:'#fffbeb', ac:'#f59e0b'},
-        {label:'SALDO', val:(balance>=0?'':'-')+fmtV(Math.abs(balance)), sub:balance>=0?'disponivel':'deficit', bg:balance>=0?'#f0f9ff':'#fef2f2', ac:balance>=0?'#6366f1':'#f43f5e'},
+        {label:'RECEITAS', val:fmtV(totalIncome), sub:'salário + benefícios', bg:'#f0fdf4', ac:'#10b981'},
+        {label:'DESPESAS', val:fmtV(total), sub:expenses.length+' lançamentos', bg:'#fef2f2', ac:'#f43f5e'},
+        {label:'PENDENTE', val:fmtV(totalPending), sub:pendingList.length+' não pagas', bg:'#fffbeb', ac:'#f59e0b'},
+        {label:'SALDO', val:fmtV(Math.abs(balance)), sub:balance>=0?'disponível':'⚠ déficit', bg:balance>=0?'#f0f9ff':'#fef2f2', ac:balance>=0?'#6366f1':'#f43f5e'},
       ]
       const cw = (W-pad*2-9)/4
       cards.forEach((c,i) => {
@@ -507,10 +507,10 @@ export default function Dashboard({user}) {
 
       box(c2, y, colW, catH, '#ffffff', '#e2e8f0')
       doc.setFontSize(5.5); doc.setFont('helvetica','bold'); txt('#94a3b8')
-      doc.text('COMPOSICAO DAS RECEITAS', c2+4, y+6)
+      doc.text('COMPOSIÇÃO DAS RECEITAS', c2+4, y+6)
       draw('#f1f5f9'); doc.line(c2+4, y+8, c2+colW-4, y+8)
       let yi = y+13
-      ;[['Salario', income.salary, '#10b981'],['VT + VR', income.vtvr, '#3b82f6'],['Comissao', income.commission, '#f59e0b']].forEach(([lb,v,c]) => {
+      ;[['Salário', income.salary, '#10b981'],['VT + VR', income.vtvr, '#3b82f6'],['Comissão', income.commission, '#f59e0b']].forEach(([lb,v,c]) => {
         const [ir,ig,ib] = rgb(c)
         doc.setFontSize(7); doc.setFont('helvetica','normal'); txt('#64748b')
         doc.text(lb, c2+4, yi)
@@ -532,7 +532,7 @@ export default function Dashboard({user}) {
         if(y > 240) { doc.addPage(); y = 16 }
         box(pad, y, W-pad*2, 8, '#f0f2ff', null)
         doc.setFontSize(5.5); doc.setFont('helvetica','bold'); txt('#94a3b8')
-        const cols = [[pad+3,'DESCRICAO'],[pad+75,'CATEGORIA'],[pad+103,'PARCELA'],[W-pad-26,'VALOR',true],[W-pad-3,'STATUS',true]]
+        const cols = [[pad+3,'DESCRIÇÃO'],[pad+75,'CATEGORIA'],[pad+103,'PARCELA'],[W-pad-26,'VALOR',true],[W-pad-3,'STATUS',true]]
         cols.forEach(([x,lb,right]) => doc.text(lb, x, y+5.5, right?{align:'right'}:{}))
         y += 9
 
@@ -586,7 +586,7 @@ export default function Dashboard({user}) {
         doc.text('Finly', pad, 292)
         doc.setFontSize(6); doc.setFont('helvetica','normal'); txt('#94a3b8')
         doc.text('finly.api.br · '+new Date().toLocaleDateString('pt-BR'), W/2, 292, {align:'center'})
-        doc.text('Pagina '+p+' de '+pages, W-pad, 292, {align:'right'})
+        doc.text('Página '+p+' de '+pages, W-pad, 292, {align:'right'})
       }
 
       doc.save('Finly-'+monName.replace('/','_')+'.pdf')
