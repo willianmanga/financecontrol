@@ -340,15 +340,17 @@ export default function Dashboard({user}) {
   const deleteAccount = async () => {
     if (!window.confirm('Tem certeza? Todos os seus dados serão apagados permanentemente. Esta ação não pode ser desfeita.')) return
     if (!window.confirm('Última confirmação: apagar minha conta e todos os dados?')) return
+    notify('Excluindo conta...', 'loading', 8000)
     try {
       await supabase.from('despesas').delete().eq('user_id', user.id)
       await supabase.from('receitas').delete().eq('user_id', user.id)
       const { error } = await supabase.rpc('delete_user')
-      if (error) {
-        await supabase.auth.signOut()
-      }
+      if (error) throw error
+      notify('Conta excluída!', 'success')
+      setTimeout(() => supabase.auth.signOut(), 1500)
     } catch(e) {
-      await supabase.auth.signOut()
+      console.error('Delete error:', e)
+      notify('Erro ao excluir. Tente novamente.', 'error')
     }
   }
 
