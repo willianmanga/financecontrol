@@ -381,6 +381,400 @@ export default function Dashboard({user}) {
   const signOut = async()=>{ await supabase.auth.signOut() }
 
   /* ── EXPORT PDF ── */
+  const exportPDF = async () => {
+    notify('Gerando PDF...', 'loading', 4000)
+
+    const monName = monthLabel(month)
+    const paidList = expenses.filter(e => e.paid)
+    const pendingList = expenses.filter(e => !e.paid)
+    const totalPaid = paidList.reduce((s,e) => s+Number(e.value), 0)
+    const totalPending = pendingList.reduce((s,e) => s+Number(e.value), 0)
+    const pct = total > 0 ? (totalPaid/total)*100 : 0
+    const fmtV = v => 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
+
+    const catBreakdown = CATS.map(cat => ({
+      name: cat, color: CAT_COLORS[cat],
+      value: expenses.filter(e => e.category===cat).reduce((s,e)=>s+Number(e.value),0),
+      paid: expenses.filter(e => e.category===cat&&e.paid).reduce((s,e)=>s+Number(e.value),0),
+      count: expenses.filter(e => e.category===cat).length
+    })).filter(c => c.value > 0).sort((a,b) => b.value-a.value)
+    const maxCat = catBreakdown.length > 0 ? catBreakdown[0].value : 1
+
+    // Load jsPDF dynamically
+    await new Promise((res, rej) => {
+      if (window.jspdf) { res(); return }
+      const s = document.createElement('script')
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+      s.onload = res; s.onerror = rej
+      document.head.appendChild(s)
+    })
+
+    const { jsPDF } = window.jspdf
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const W = 210, H = 297
+    const pad = 16
+
+    // ── HELPERS ──
+    const hex2rgb = hex => {
+      const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16)
+      return [r,g,b]
+    }
+    const setFill = (hex) => { const [r,g,b] = hex2rgb(hex); doc.setFillColor(r,g,b) }
+    const setDraw = (hex) => { const [r,g,b] = hex2rgb(hex); doc.setDrawColor(r,g,b) }
+    const setTxt = (hex) => { const [r,g,b] = hex2rgb(hex); doc.setTextColor(r,g,b) }
+    const rr = (x,y,w,h,r,fill,stroke) => {
+      if(fill){setFill(fill)}
+      if(stroke){setDraw(stroke)}
+      doc.roundedRect(x,y,w,h,r,r,fill&&stroke?'FD':fill?'F':stroke?'D':'N')
+    }
+
+    // gradient header via rect strips
+    const drawHeader = () => {
+      const colors = ['#4f46e5','#5548e8','#5b4aeb','#614cee','#674ef1','#6d50f0','#7354ee','#7958ec','#7f5cea','#8560e8','#8b64e6','#9168e4']
+      const hh = 42
+      colors.forEach((c,i) => {
+        setFill(c)
+        doc.rect(0, i*(hh/colors.length), W, (hh/colors.length)+0.5, 'F')
+      })
+      // Logo icon
+      rr(pad, 8, 14, 14, 3, '#ffffff33')
+      setTxt('#ffffff')
+      doc.setFont('helvetica','bold')
+      doc.setFontSize(10)
+      doc.text('F', pad+7, 17, {align:'center'})
+      // Brand
+      doc.setFontSize(16)
+      doc.setFont('helvetica','bold')
+      setTxt('#ffffff')
+      doc.text('Finly', pad+18, 16)
+      doc.setFontSize(6)
+      doc.setFont('helvetica','normal')
+      setTxt('#ffffff99')
+      doc.text('PERSONAL FINANCE', pad+18, 21)
+      // Month right
+      doc.setFontSize(20)
+      doc.setFont('helvetica','bold')
+      setTxt('#ffffff')
+      doc.text(monName, W-pad, 18, {align:'right'})
+      doc.setFontSize(6)
+      doc.setFont('helvetica','normal')
+      setTxt('#ffffffaa')
+      doc.text('RELATÓRIO MENSAL', W-pad, 23, {align:'right'})
+      doc.text(user.email, W-pad, 28, {align:'right'})
+      // Bottom line
+      setDraw('#ffffff22')
+      doc.setLineWidth(0.2)
+      doc.line(pad, 38, W-pad, 38)
+    }
+    drawHeader()
+
+    let y = 48
+
+    // ── STAT CARDS ──
+    const cards = [
+      {label:'RECEITAS', val:fmtV(totalIncome), sub:'salário + benefícios', bg:'#f0fdf4', accent:'#10b981'},
+      {label:'DESPESAS', val:fmtV(total), sub:expenses.length+' lançamentos', bg:'#fef2f2', accent:'#f43f5e'},
+      {label:'PENDENTE', val:fmtV(totalPending), sub:pendingList.length+' não pagas', bg:'#fffbeb', accent:'#f59e0b'},
+      {label:'SALDO', val:(balance>=0?'':'-')+fmtV(Math.abs(balance)), sub:balance>=0?'disponível':'déficit', bg:balance>=0?'#f0f9ff':'#fef2f2', accent:balance>=0?'#6366f1':'#f43f5e'},
+    ]
+    const cw = (W - pad*2 - 9) / 4
+    cards.forEach((c,i) => {
+      const cx = pad + i*(cw+3)
+      rr(cx, y, cw, 22, 2, c.bg, null)
+      // accent left border
+      const [r2,g2,b2] = hex2rgb(c.accent)
+      doc.setFillColor(r2,g2,b2)
+      doc.rect(cx, y, 1.5, 22, 'F')
+      // label
+      doc.setFontSize(5.5)
+      doc.setFont('helvetica','bold')
+      setTxt(c.accent)
+      doc.text(c.label, cx+4, y+5)
+      // value
+      doc.setFontSize(9)
+      doc.setFont('helvetica','bold')
+      setTxt(c.accent)
+      doc.text(c.val, cx+4, y+12, {maxWidth: cw-5})
+      // sub
+      doc.setFontSize(5)
+      doc.setFont('helvetica','normal')
+      setTxt('#94a3b8')
+      doc.text(c.sub, cx+4, y+18)
+    })
+    y += 27
+
+    // ── PROGRESS BAR ──
+    if(expenses.length > 0) {
+      rr(pad, y, W-pad*2, 18, 3, '#f8faff', '#e2e8f0')
+      // circle
+      doc.setFillColor(99,102,241)
+      doc.circle(pad+11, y+9, 7, 'F')
+      doc.setFontSize(7)
+      doc.setFont('helvetica','bold')
+      setTxt('#ffffff')
+      doc.text(Math.round(pct)+'%', pad+11, y+9.5, {align:'center'})
+      // text
+      doc.setFontSize(9)
+      doc.setFont('helvetica','bold')
+      setTxt('#0f172a')
+      doc.text('Progresso de Pagamentos', pad+21, y+6)
+      doc.setFontSize(6.5)
+      doc.setFont('helvetica','normal')
+      setTxt('#64748b')
+      doc.text(paidList.length+' de '+expenses.length+' despesas pagas', pad+21, y+11)
+      // bar bg
+      const bx = pad+21, bw = W-pad*2-24, bh = 3
+      rr(bx, y+13, bw, bh, 1.5, '#e2e8f0', null)
+      // bar fill
+      if(pct > 0) {
+        doc.setFillColor(99,102,241)
+        doc.roundedRect(bx, y+13, bw*(pct/100), bh, 1.5, 1.5, 'F')
+      }
+      // paid/pending
+      doc.setFontSize(6)
+      doc.setFont('helvetica','bold')
+      setTxt('#10b981')
+      doc.text('✓ Pago: '+fmtV(totalPaid), bx, y+19)
+      setTxt('#f43f5e')
+      doc.text('Pendente: '+fmtV(totalPending), bx+bw, y+19, {align:'right'})
+      y += 23
+    }
+
+    // ── TWO COLUMNS: CATEGORIES + INCOME ──
+    const colW = (W - pad*2 - 6) / 2
+    const col1x = pad, col2x = pad + colW + 6
+    let yCol = y
+
+    // Categories
+    const catH = Math.max(catBreakdown.length * 14 + 20, 40)
+    rr(col1x, yCol, colW, catH, 3, '#ffffff', '#e2e8f0')
+    doc.setFontSize(5.5)
+    doc.setFont('helvetica','bold')
+    setTxt('#94a3b8')
+    doc.text('DESPESAS POR CATEGORIA', col1x+4, yCol+6)
+    setDraw('#f1f5f9')
+    doc.setLineWidth(0.2)
+    doc.line(col1x+4, yCol+8, col1x+colW-4, yCol+8)
+    let yc = yCol + 13
+    catBreakdown.forEach(cat => {
+      const [r2,g2,b2] = hex2rgb(cat.color)
+      doc.setFontSize(7)
+      doc.setFont('helvetica','bold')
+      doc.setTextColor(r2,g2,b2)
+      doc.text(cat.name, col1x+4, yc)
+      doc.setFontSize(7)
+      doc.setFont('helvetica','bold')
+      setTxt('#0f172a')
+      doc.text(fmtV(cat.value), col1x+colW-4, yc, {align:'right'})
+      // bar bg
+      rr(col1x+4, yc+1.5, colW-8, 2.5, 1, '#f1f5f9', null)
+      // bar fill
+      if(cat.value > 0) {
+        doc.setFillColor(r2,g2,b2)
+        doc.roundedRect(col1x+4, yc+1.5, (colW-8)*(cat.value/maxCat), 2.5, 1, 1, 'F')
+      }
+      doc.setFontSize(5)
+      doc.setFont('helvetica','normal')
+      setTxt('#94a3b8')
+      doc.text(cat.count+' itens · '+(cat.value>0?Math.round((cat.paid/cat.value)*100):0)+'% pago', col1x+4, yc+6.5)
+      yc += 13
+    })
+
+    // Income
+    const incItems = [['Salário', income.salary, '#10b981'],['VT + VR', income.vtvr, '#3b82f6'],['Comissão', income.commission, '#f59e0b']]
+    const incH = catH
+    rr(col2x, yCol, colW, incH, 3, '#ffffff', '#e2e8f0')
+    doc.setFontSize(5.5)
+    doc.setFont('helvetica','bold')
+    setTxt('#94a3b8')
+    doc.text('COMPOSIÇÃO DAS RECEITAS', col2x+4, yCol+6)
+    setDraw('#f1f5f9')
+    doc.line(col2x+4, yCol+8, col2x+colW-4, yCol+8)
+    let yi = yCol + 13
+    incItems.forEach(([lb,v,c]) => {
+      doc.setFontSize(7)
+      doc.setFont('helvetica','normal')
+      setTxt('#64748b')
+      doc.text(lb, col2x+4, yi)
+      doc.setFont('helvetica','bold')
+      const [r2,g2,b2] = hex2rgb(c)
+      doc.setTextColor(r2,g2,b2)
+      doc.text(fmtV(v), col2x+colW-4, yi, {align:'right'})
+      rr(col2x+4, yi+1.5, colW-8, 2.5, 1, '#f1f5f9', null)
+      if(v > 0 && totalIncome > 0) {
+        doc.setFillColor(r2,g2,b2)
+        doc.roundedRect(col2x+4, yi+1.5, (colW-8)*(v/totalIncome), 2.5, 1, 1, 'F')
+      }
+      yi += 11
+    })
+    // Total line
+    setDraw('#f1f5f9')
+    doc.line(col2x+4, yi+1, col2x+colW-4, yi+1)
+    doc.setFontSize(7)
+    doc.setFont('helvetica','bold')
+    setTxt('#94a3b8')
+    doc.text('TOTAL', col2x+4, yi+5)
+    setTxt('#10b981')
+    doc.text(fmtV(totalIncome), col2x+colW-4, yi+5, {align:'right'})
+
+    y = yCol + catH + 8
+
+    // ── EXPENSES TABLE ──
+    if(expenses.length > 0) {
+      // Check if need new page
+      if(y > H - 60) { doc.addPage(); y = 16 }
+
+      // Table header
+      rr(pad, y, W-pad*2, 8, 2, '#f8f9ff', null)
+      const cols = [{label:'DESCRIÇÃO',x:pad+3,w:60},{label:'CATEGORIA',x:pad+65,w:28},{label:'PARCELA',x:pad+95,w:20},{label:'VALOR',x:W-pad-28,w:28,right:true},{label:'STATUS',x:W-pad-3,w:24,right:true}]
+      doc.setFontSize(5.5)
+      doc.setFont('helvetica','bold')
+      setTxt('#94a3b8')
+      cols.forEach(c => doc.text(c.label, c.right?(c.x):(c.x), y+5, c.right?{align:'right'}:{}))
+      y += 9
+
+      expenses.forEach((e, idx) => {
+        if(y > H - 20) { doc.addPage(); y = 16 }
+        if(idx%2===0) {
+          rr(pad, y-1, W-pad*2, 8.5, 1, '#fafbff', null)
+        }
+        const accent = e.paid ? '#10b981' : '#f43f5e'
+        doc.setFontSize(7)
+        doc.setFont('helvetica','bold')
+        setTxt('#0f172a')
+        const nameText = e.name.length > 28 ? e.name.slice(0,28)+'…' : e.name
+        doc.text(nameText, pad+3, y+4.5)
+        // category pill
+        const catColor = CAT_COLORS[e.category] || '#94a3b8'
+        const [cr,cg,cb] = hex2rgb(catColor)
+        doc.setFillColor(cr,cg,cb)
+        doc.setGState(new doc.GState({opacity:0.12}))
+        doc.roundedRect(pad+65, y+0.5, 24, 5.5, 1.5, 1.5, 'F')
+        doc.setGState(new doc.GState({opacity:1}))
+        doc.setFontSize(5.5)
+        doc.setFont('helvetica','bold')
+        doc.setTextColor(cr,cg,cb)
+        doc.text(e.category, pad+77, y+4.5, {align:'center'})
+        // parcela
+        doc.setFontSize(6)
+        doc.setFont('helvetica','normal')
+        setTxt('#94a3b8')
+        doc.text(e.parcelas_total>1?e.parcela_atual+'/'+e.parcelas_total:'—', pad+105, y+4.5, {align:'center'})
+        // value
+        doc.setFontSize(7)
+        doc.setFont('helvetica','bold')
+        setTxt(accent)
+        doc.text(fmtV(e.value), W-pad-28, y+4.5, {align:'right'})
+        // status pill
+        const [sr,sg,sb] = hex2rgb(accent)
+        doc.setFillColor(sr,sg,sb)
+        doc.setGState(new doc.GState({opacity:0.12}))
+        doc.roundedRect(W-pad-20, y+0.5, 18, 5.5, 2, 2, 'F')
+        doc.setGState(new doc.GState({opacity:1}))
+        doc.setFontSize(5.5)
+        doc.setFont('helvetica','bold')
+        setTxt(accent)
+        doc.text(e.paid?'PAGO':'PENDENTE', W-pad-11, y+4.5, {align:'center'})
+
+        y += 9
+      })
+    }
+
+    // ── FOOTER ──
+    const lastPage = doc.getNumberOfPages()
+    for(let p = 1; p <= lastPage; p++) {
+      doc.setPage(p)
+      setFill('#f8faff')
+      doc.rect(0, H-12, W, 12, 'F')
+      setDraw('#e2e8f0')
+      doc.setLineWidth(0.2)
+      doc.line(0, H-12, W, H-12)
+      doc.setFontSize(8)
+      doc.setFont('helvetica','bold')
+      doc.setTextColor(99,102,241)
+      doc.text('Finly', pad, H-5)
+      doc.setFontSize(6)
+      doc.setFont('helvetica','normal')
+      setTxt('#94a3b8')
+      doc.text('finly.api.br · '+new Date().toLocaleDateString('pt-BR'), W/2, H-5, {align:'center'})
+      doc.text('Página '+p+' de '+lastPage, W-pad, H-5, {align:'right'})
+    }
+
+    doc.save('Finly-'+monName.replace('/','_')+'.pdf')
+    notify('PDF baixado!', 'success')
+  }
+
+
+  /* ── ACTIONS ── */
+  const togglePaid = async(id,cur)=>{
+    setExpenses(prev=>prev.map(e=>e.id===id?{...e,paid:!cur}:e))
+    const {error} = await supabase.from('despesas').update({paid:!cur}).eq('id',id).eq('user_id',user.id)
+    if(error){ setExpenses(prev=>prev.map(e=>e.id===id?{...e,paid:cur}:e)); notify('Erro ao atualizar','error'); return }
+    notify(!cur?'✓ Marcado como pago':'Desmarcado','success')
+    loadHistory()
+  }
+
+  const addExpense = async()=>{
+    if(!newE.name.trim()||!newE.value||isNaN(parseFloat(newE.value))){ notify('Preencha nome e valor','error'); return }
+    const parcelas=Math.max(1,Math.min(60,parseInt(newE.parcelas)||1))
+    const valorParcela=parseFloat(newE.value)
+    const nomeParcela=newE.name.toUpperCase().trim()
+    if(parcelas===1){
+      notify('Salvando...','loading',1500)
+      const {data,error} = await supabase.from('despesas').insert({user_id:user.id,name:nomeParcela,value:valorParcela,paid:false,category:newE.category,month,parcela_atual:null,parcelas_total:null,parcela_grupo:null}).select().single()
+      if(error){ notify('Erro ao adicionar','error'); return }
+      setExpenses(prev=>[data,...prev])
+    } else {
+      notify(`Criando ${parcelas} parcelas...`,'loading',2500)
+      const grupo=`${nomeParcela}_${Date.now()}`
+      const rows=[]
+      const [mesAtual,anoAtual]=month.split('/').map(Number)
+      for(let i=0;i<parcelas;i++){
+        const d=new Date(anoAtual,mesAtual-1+i,1)
+        const m=`${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+        rows.push({user_id:user.id,name:`${nomeParcela} (${i+1}/${parcelas})`,value:valorParcela,paid:false,category:newE.category,month:m,parcela_atual:i+1,parcelas_total:parcelas,parcela_grupo:grupo})
+      }
+      const {error} = await supabase.from('despesas').insert(rows)
+      if(error){ notify('Erro ao criar parcelas','error'); return }
+      notify(`${parcelas} parcelas criadas!`,'success')
+    }
+    setNewE({name:'',value:'',category:'Cartão',parcelas:'1'}); setShowAdd(false)
+    loadExpenses(); loadHistory()
+  }
+
+  const editExpense = async(id,payload)=>{
+    const {error} = await supabase.from('despesas').update(payload).eq('id',id).eq('user_id',user.id)
+    if(error){ notify('Erro ao editar','error'); return }
+    setExpenses(prev=>prev.map(e=>e.id===id?{...e,...payload}:e))
+    setEditingExpense(null)
+    notify('Despesa atualizada!','success')
+  }
+
+  const removeExpense = async(id)=>{
+    setExpenses(prev=>prev.filter(e=>e.id!==id))
+    const {error} = await supabase.from('despesas').delete().eq('id',id).eq('user_id',user.id)
+    if(error){ notify('Erro ao remover','error'); loadExpenses(); return }
+    notify('Despesa removida','success'); loadHistory()
+  }
+
+  const saveIncome = async()=>{
+    const payload={salary:parseFloat(incomeEdit.salary)||0,vtvr:parseFloat(incomeEdit.vtvr)||0,commission:parseFloat(incomeEdit.commission)||0}
+    const {data:existing} = await supabase.from('receitas').select('id').eq('user_id',user.id).eq('month',month).single()
+    let error
+    if(existing){
+      const res=await supabase.from('receitas').update(payload).eq('user_id',user.id).eq('month',month)
+      error=res.error
+    } else {
+      const res=await supabase.from('receitas').insert({user_id:user.id,month,...payload})
+      error=res.error
+    }
+    if(error){ notify('Erro ao salvar: '+error.message,'error'); return }
+    setIncome(payload); notify('Receitas salvas!','success'); setShowIncome(false); loadHistory()
+  }
+
+  const signOut = async()=>{ await supabase.auth.signOut() }
+
+  /* ── EXPORT PDF ── */
   const exportPDF = () => {
     const monName = monthLabel(month)
     const paidList = expenses.filter(e => e.paid)
