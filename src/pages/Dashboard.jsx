@@ -581,7 +581,7 @@ export default function Dashboard({user}) {
   const filtered=filterCat==='Todos'?expenses:expenses.filter(e=>e.category===filterCat)
   const catData=CATS.map(cat=>({name:cat,color:CAT_COLORS[cat],value:expenses.filter(e=>e.category===cat).reduce((s,e)=>s+Number(e.value),0),paidVal:expenses.filter(e=>e.category===cat&&e.paid).reduce((s,e)=>s+Number(e.value),0),count:expenses.filter(e=>e.category===cat).length})).filter(c=>c.value>0).sort((a,b)=>b.value-a.value)
   const top5=[...expenses].sort((a,b)=>Number(b.value)-Number(a.value)).slice(0,5)
-  const monthOptions=Array.from({length:12},(_,i)=>{ const d=new Date(); d.setMonth(d.getMonth()-i); const val=`${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; return{val,label:monthLabel(val)} })
+  const monthOptions=(()=>{ const opts=[]; for(let m=1;m<=12;m++){ const val=`${String(m).padStart(2,'0')}/2026`; opts.push({val,label:monthLabel(val)}) } return opts.reverse() })()
   const userName=user.user_metadata?.full_name||user.email?.split('@')[0]||'Usuário'
 
   /* ── STYLES ── */
