@@ -120,7 +120,7 @@ function CTip({ active, payload, label, isDark }) {
 
 function StatCard({ label, value, color, borderColor, sub, T }) {
   return (
-    <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:16,padding:'16px 18px',position:'relative',overflow:'hidden',borderTop:`2px solid ${borderColor}`}}>
+    <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:16,padding:'16px 18px',position:'relative',overflow:'hidden',borderTop:`2px solid ${borderColor}`,boxShadow:`0 -2px 12px ${color}22, 0 4px 24px rgba(0,0,0,0.15)`}}>
       <div style={{position:'absolute',inset:0,background:`radial-gradient(circle at 80% 20%,${color}10,transparent 60%)`,pointerEvents:'none'}}/>
       <div style={{fontSize:9,letterSpacing:'2px',color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",textTransform:'uppercase',marginBottom:7}}>{label}</div>
       <div style={{fontSize:22,fontWeight:800,color,letterSpacing:'-0.5px',marginBottom:4,fontFamily:"'JetBrains Mono',monospace"}}>{fmt(value)}</div>
@@ -837,6 +837,27 @@ export default function Dashboard({ user }) {
                   )}
                 </div>
               </>
+            )}
+
+            {/* ── CALL TO ACTION — tela vazia ── */}
+            {!loading && expenses.length === 0 && incomeItems.length === 0 && (
+              <div style={{marginTop:8,background:isDark?'rgba(99,102,241,0.04)':'rgba(99,102,241,0.03)',border:`1px dashed ${isDark?'rgba(99,102,241,0.2)':'rgba(99,102,241,0.15)'}`,borderRadius:20,padding:isMobile?'32px 20px':'40px 32px',textAlign:'center',animation:'fadeUp .4s ease'}}>
+                <div style={{fontSize:40,marginBottom:16}}>🚀</div>
+                <div style={{fontSize:isMobile?18:22,fontWeight:800,letterSpacing:'-0.5px',marginBottom:8}}>Comece agora, {userName.split(' ')[0]}!</div>
+                <div style={{fontSize:13,color:T.textMuted,marginBottom:24,lineHeight:1.6,maxWidth:400,margin:'0 auto 24px'}}>
+                  Adicione suas receitas e despesas para começar a acompanhar suas finanças em tempo real.
+                </div>
+                <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
+                  <button onClick={() => setShowIncome(true)}
+                    style={{background:'linear-gradient(135deg,rgba(16,185,129,0.15),rgba(16,185,129,0.08))',border:'1px solid rgba(16,185,129,0.3)',borderRadius:12,color:'#10b981',padding:'12px 22px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',transition:'all .2s'}}>
+                    ✏ Adicionar receitas
+                  </button>
+                  <button onClick={() => setTab('expenses')}
+                    style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:12,color:'#fff',padding:'12px 22px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:'0 4px 18px rgba(99,102,241,0.35)',transition:'all .2s'}}>
+                    + Adicionar primeira despesa →
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         )}
