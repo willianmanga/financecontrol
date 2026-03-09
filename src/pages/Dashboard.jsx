@@ -36,9 +36,12 @@ const monthLabel = m => {
 
 const buildMonthOptions = () => {
   const opts = []
-  for (let m = 12; m >= 1; m--) {
-    const val = `${String(m).padStart(2,'0')}/2026`
-    opts.push({ val, label: monthLabel(val) })
+  const currentYear = new Date().getFullYear()
+  for (let year = currentYear + 2; year >= currentYear; year--) {
+    for (let m = 12; m >= 1; m--) {
+      const val = `${String(m).padStart(2,'0')}/${year}`
+      opts.push({ val, label: monthLabel(val) })
+    }
   }
   return opts
 }
