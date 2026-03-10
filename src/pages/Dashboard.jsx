@@ -326,27 +326,28 @@ export default function Dashboard({user}){
     const{data:fixedData}=await supabase.from('despesas_fixas').select('*').eq('user_id',user.id).eq('active',true).order('created_at',{ascending:true})
     if(!fixedData){setFixedExpenses([]);setFixedMonthly([]);return}
     setFixedExpenses(fixedData)
-    // 2. Carrega todas as despesas do mês
+
+    // 2. LIMPEZA GLOBAL: para cada fixa, vincula TODAS as despesas com mesmo nome
+    // em qualquer mês que ainda estejam com fixed_id = NULL
+    // Isso corrige histórico de meses anteriores de uma vez só
+    for(const f of fixedData){
+      await supabase.from('despesas')
+        .update({fixed_id:f.id})
+        .eq('user_id',user.id)
+        .eq('name',f.name)
+        .is('fixed_id',null)
+    }
+
+    // 3. Carrega despesas do mês atual após a limpeza
     const{data:allMonth}=await supabase.from('despesas').select('*').eq('user_id',user.id).eq('month',month).order('created_at',{ascending:false})
     const monthExpenses=allMonth||[]
-    // 3. Para cada fixa, verifica se já tem instância (por fixed_id ou por nome — evita duplicata)
+
+    // 4. Verifica se esta fixa já tem instância no mês — se não, cria
     const linkedIds=new Set(monthExpenses.filter(e=>e.fixed_id).map(e=>e.fixed_id))
-    const updates=[]
-    const toInsert=[]
-    for(const f of fixedData){
-      if(linkedIds.has(f.id))continue
-      const orphan=monthExpenses.find(e=>!e.fixed_id&&e.name===f.name)
-      if(orphan){updates.push({id:orphan.id,fixed_id:f.id})}
-      else{toInsert.push(f)}
-    }
-    for(const u of updates){
-      await supabase.from('despesas').update({fixed_id:u.fixed_id}).eq('id',u.id).eq('user_id',user.id)
-    }
+    const toInsert=fixedData.filter(f=>!linkedIds.has(f.id))
     if(toInsert.length>0){
       const rows=toInsert.map(f=>({user_id:user.id,name:f.name,value:f.value,paid:false,category:f.category,month,fixed_id:f.id,parcela_atual:null,parcelas_total:null,parcela_grupo:null}))
       await supabase.from('despesas').insert(rows)
-    }
-    if(updates.length>0||toInsert.length>0){
       const{data:final}=await supabase.from('despesas').select('*').eq('user_id',user.id).eq('month',month).order('created_at',{ascending:false})
       if(final){setFixedMonthly(final.filter(e=>e.fixed_id));setExpenses(final.filter(e=>!e.fixed_id));return}
     }
