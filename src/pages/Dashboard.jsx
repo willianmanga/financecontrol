@@ -315,82 +315,37 @@ export default function Dashboard({user}){
   // ── LOADERS ──
   const loadExpenses=useCallback(async()=>{
     setLoading(true)
-    const{data,error}=await supabase.from('despesas').select('*').eq('user_id',user.id).eq('month',month).order('created_at',{ascending:false})
+    // 1. Apaga todas as linhas que foram injetadas automaticamente (fixed_id preenchido)
+    //    Isso resolve de vez as duplicatas históricas
+    await supabase.from('despesas').delete().eq('user_id',user.id).not('fixed_id','is',null)
+    // 2. Carrega só despesas variáveis (fixed_id null)
+    const{data,error}=await supabase.from('despesas').select('*').eq('user_id',user.id).eq('month',month).is('fixed_id',null).order('created_at',{ascending:false})
     if(!error)setExpenses(data||[])
     else notify('Erro ao carregar despesas','error')
     setLoading(false)
   },[user.id,month])
 
   const loadFixedExpenses=useCallback(async()=>{
-    // 1. Carrega fixas ativas
+    // Lê despesas_fixas diretamente — sem injetar nada em despesas
+    // Status "pago por mês" salvo em fixas_status no localStorage
     const{data:fixedData}=await supabase.from('despesas_fixas').select('*').eq('user_id',user.id).eq('active',true).order('created_at',{ascending:true})
     if(!fixedData||fixedData.length===0){setFixedExpenses([]);setFixedMonthly([]);return}
     setFixedExpenses(fixedData)
-
-    // 2. Carrega TODAS as despesas do usuário (todos os meses) para limpeza global
-    const{data:allDespesas}=await supabase.from('despesas').select('id,name,month,fixed_id').eq('user_id',user.id)
-    const all=allDespesas||[]
-
-    // 3. Para cada fixa, garante exatamente 1 instância por mês — sem duplicatas
-    // Estratégia: por mês, se já tem uma com fixed_id correto, mantém.
-    // Se tem uma com nome igual mas fixed_id errado/null, vincula e apaga extras.
-    const fixedNames=new Map(fixedData.map(f=>[f.name,f.id])) // name -> fixed_id
-
-    // Agrupa despesas por mês+nome
-    const byMonthName={}
-    for(const e of all){
-      const key=e.month+'||'+e.name
-      if(!byMonthName[key])byMonthName[key]=[]
-      byMonthName[key].push(e)
-    }
-
-    const toDelete=[]
-    const toLink=[] // {id, fixed_id}
-
-    for(const[key,rows] of Object.entries(byMonthName)){
-      const name=key.split('||')[1]
-      const fid=fixedNames.get(name)
-      if(!fid)continue // não é uma fixa conhecida, ignora
-
-      // Separa: a que já tem o fixed_id certo, e as outras
-      const correct=rows.find(e=>e.fixed_id===fid)
-      const others=rows.filter(e=>e.id!==(correct?.id))
-
-      if(correct){
-        // Já tem uma certa — apaga todas as outras deste mês+nome
-        toDelete.push(...others.map(e=>e.id))
-      } else {
-        // Nenhuma com fixed_id certo — pega a mais antiga, vincula, apaga resto
-        const sorted=[...rows].sort((a,b)=>a.id-b.id)
-        toLink.push({id:sorted[0].id,fixed_id:fid})
-        toDelete.push(...sorted.slice(1).map(e=>e.id))
-      }
-    }
-
-    // Apaga duplicatas
-    if(toDelete.length>0){
-      await supabase.from('despesas').delete().in('id',toDelete).eq('user_id',user.id)
-    }
-    // Vincula despesas manuais às fixas
-    for(const{id,fixed_id}of toLink){
-      await supabase.from('despesas').update({fixed_id}).eq('id',id).eq('user_id',user.id)
-    }
-
-    // 4. Carrega despesas do mês atual já limpas
-    const{data:allMonth}=await supabase.from('despesas').select('*').eq('user_id',user.id).eq('month',month).order('created_at',{ascending:false})
-    const monthExpenses=allMonth||[]
-
-    // 5. Se alguma fixa ainda não tem instância no mês, cria
-    const linkedIds=new Set(monthExpenses.filter(e=>e.fixed_id).map(e=>e.fixed_id))
-    const toInsert=fixedData.filter(f=>!linkedIds.has(f.id))
-    if(toInsert.length>0){
-      const rows=toInsert.map(f=>({user_id:user.id,name:f.name,value:f.value,paid:false,category:f.category,month,fixed_id:f.id,parcela_atual:null,parcelas_total:null,parcela_grupo:null}))
-      await supabase.from('despesas').insert(rows)
-      const{data:final}=await supabase.from('despesas').select('*').eq('user_id',user.id).eq('month',month).order('created_at',{ascending:false})
-      if(final){setFixedMonthly(final.filter(e=>e.fixed_id));setExpenses(final.filter(e=>!e.fixed_id));return}
-    }
-    setFixedMonthly(monthExpenses.filter(e=>e.fixed_id))
-    setExpenses(monthExpenses.filter(e=>!e.fixed_id))
+    // Lê status pago do mês atual do localStorage
+    const statusKey='fixas_status_'+user.id
+    let allStatus={}
+    try{allStatus=JSON.parse(localStorage.getItem(statusKey)||'{}')}catch{}
+    const monthStatus=allStatus[month]||{}
+    // Monta objetos com paid por mês — só fixas criadas antes ou no mês atual
+    const[mNum,yNum]=month.split('/').map(Number)
+    const monthDate=new Date(yNum,mNum-1,1)
+    const visible=fixedData.filter(f=>{
+      const c=new Date(f.created_at)
+      const fMonth=new Date(c.getFullYear(),c.getMonth(),1)
+      return fMonth<=monthDate
+    })
+    const withStatus=visible.map(f=>({...f,paid:!!monthStatus[f.id],_isFixed:true}))
+    setFixedMonthly(withStatus)
   },[user.id,month])
 
   const loadHistory=useCallback(async()=>{
@@ -416,17 +371,32 @@ export default function Dashboard({user}){
   },[user.id,month])
 
   useEffect(()=>{
-    const run=async()=>{ await loadFixedExpenses(); await loadExpenses(); loadHistory(); loadIncome() }
+    const run=async()=>{ loadExpenses(); loadFixedExpenses(); loadHistory(); loadIncome() }
     run()
   },[loadExpenses,loadFixedExpenses,loadHistory,loadIncome])
 
   // ── ACTIONS ──
+  const saveFixedStatus=(fixedId,paid)=>{
+    const statusKey='fixas_status_'+user.id
+    let allStatus={}
+    try{allStatus=JSON.parse(localStorage.getItem(statusKey)||'{}')}catch{}
+    if(!allStatus[month])allStatus[month]={}
+    allStatus[month][fixedId]=paid
+    localStorage.setItem(statusKey,JSON.stringify(allStatus))
+  }
+
   const togglePaid=async(id,cur)=>{
     const isFixed=fixedMonthly.find(e=>e.id===id)
-    if(isFixed)setFixedMonthly(prev=>prev.map(e=>e.id===id?{...e,paid:!cur}:e))
-    else setExpenses(prev=>prev.map(e=>e.id===id?{...e,paid:!cur}:e))
+    if(isFixed){
+      // Fixa: salva status no localStorage (sem tocar em despesas)
+      setFixedMonthly(prev=>prev.map(e=>e.id===id?{...e,paid:!cur}:e))
+      saveFixedStatus(id,!cur)
+      notify(!cur?'✓ Marcado como pago':'Desmarcado','success')
+      return
+    }
+    setExpenses(prev=>prev.map(e=>e.id===id?{...e,paid:!cur}:e))
     const{error}=await supabase.from('despesas').update({paid:!cur}).eq('id',id).eq('user_id',user.id)
-    if(error){if(isFixed)setFixedMonthly(prev=>prev.map(e=>e.id===id?{...e,paid:cur}:e));else setExpenses(prev=>prev.map(e=>e.id===id?{...e,paid:cur}:e));notify('Erro ao atualizar','error');return}
+    if(error){setExpenses(prev=>prev.map(e=>e.id===id?{...e,paid:cur}:e));notify('Erro ao atualizar','error');return}
     notify(!cur?'✓ Marcado como pago':'Desmarcado','success')
     loadHistory()
   }
@@ -459,20 +429,12 @@ export default function Dashboard({user}){
     const fixedName=newF.name.toUpperCase().trim()
     const{data,error}=await supabase.from('despesas_fixas').insert({user_id:user.id,name:fixedName,value:parseFloat(newF.value),category:newF.category,active:true}).select().single()
     if(error){notify('Erro ao adicionar','error');return}
+    // Adiciona direto no estado — sem criar linha em despesas
+    const newFixed={...data,paid:false,_isFixed:true}
     setFixedExpenses(prev=>[...prev,data])
-    // Verifica se já existe uma despesa com mesmo nome no mês — se sim, vincula ela em vez de criar nova
-    const existing=expenses.find(e=>e.name===fixedName&&!e.fixed_id)
-    if(existing){
-      await supabase.from('despesas').update({fixed_id:data.id}).eq('id',existing.id).eq('user_id',user.id)
-      const linked={...existing,fixed_id:data.id}
-      setExpenses(prev=>prev.filter(e=>e.id!==existing.id))
-      setFixedMonthly(prev=>[...prev,linked])
-    } else {
-      const{data:inst}=await supabase.from('despesas').insert({user_id:user.id,name:data.name,value:data.value,paid:false,category:data.category,month,fixed_id:data.id,parcela_atual:null,parcelas_total:null,parcela_grupo:null}).select().single()
-      if(inst)setFixedMonthly(prev=>[...prev,inst])
-    }
+    setFixedMonthly(prev=>[...prev,newFixed])
     setNewF({name:'',value:'',category:'Moradia'});setShowAddFixed(false)
-    notify('Despesa fixa criada!','success');loadHistory()
+    notify('Despesa fixa criada!','success')
   }
 
   const editExpense=async(id,payload)=>{
@@ -485,20 +447,35 @@ export default function Dashboard({user}){
   }
 
   // Editar fixa: só neste mês (altera instância) ou a partir de agora (altera tabela fixas + instância)
+  // Status de valor mensal personalizado para fixas: salvo em localStorage
+  const getFixedMonthValue=(fixedId)=>{
+    try{
+      const overrides=JSON.parse(localStorage.getItem('fixas_value_'+user.id)||'{}')
+      return overrides[month]?.[fixedId]??null
+    }catch{return null}
+  }
+  const saveFixedMonthValue=(fixedId,value)=>{
+    try{
+      const key='fixas_value_'+user.id
+      const overrides=JSON.parse(localStorage.getItem(key)||'{}')
+      if(!overrides[month])overrides[month]={}
+      overrides[month][fixedId]=value
+      localStorage.setItem(key,JSON.stringify(overrides))
+    }catch{}
+  }
+
   const editFixedMonth=async(fixed,newValue)=>{
-    // Altera só a instância deste mês
-    const{error}=await supabase.from('despesas').update({value:newValue}).eq('fixed_id',fixed.fixed_id||fixed.id).eq('month',month).eq('user_id',user.id)
-    if(error){notify('Erro ao editar','error');return}
+    // Salva override de valor só para este mês no localStorage
+    saveFixedMonthValue(fixed.id,newValue)
     setFixedMonthly(prev=>prev.map(e=>e.id===fixed.id?{...e,value:newValue}:e))
     setEditingFixed(null);notify('Valor alterado só neste mês ✓','success')
   }
   const editFixedForward=async(fixed,newValue)=>{
-    // Altera o valor padrão na tabela fixas E a instância do mês atual
-    const fixedId=fixed.fixed_id||fixed.id
-    await supabase.from('despesas_fixas').update({value:newValue}).eq('id',fixedId).eq('user_id',user.id)
-    await supabase.from('despesas').update({value:newValue}).eq('fixed_id',fixedId).eq('month',month).eq('user_id',user.id)
-    setFixedExpenses(prev=>prev.map(f=>f.id===fixedId?{...f,value:newValue}:f))
-    setFixedMonthly(prev=>prev.map(e=>e.fixed_id===fixedId?{...e,value:newValue}:e))
+    // Atualiza o valor padrão da fixa no banco
+    const{error}=await supabase.from('despesas_fixas').update({value:newValue}).eq('id',fixed.id).eq('user_id',user.id)
+    if(error){notify('Erro ao editar','error');return}
+    setFixedExpenses(prev=>prev.map(f=>f.id===fixed.id?{...f,value:newValue}:f))
+    setFixedMonthly(prev=>prev.map(e=>e.id===fixed.id?{...e,value:newValue}:e))
     setEditingFixed(null);notify('Valor atualizado a partir de agora ✓','success')
   }
 
@@ -512,13 +489,11 @@ export default function Dashboard({user}){
   }
 
   const deleteFixed=async(fixed)=>{
-    // Desativa a fixa (não apaga histórico) e remove instância do mês atual
-    const fixedId=fixed.fixed_id
-    await supabase.from('despesas_fixas').update({active:false}).eq('id',fixedId).eq('user_id',user.id)
-    await supabase.from('despesas').delete().eq('id',fixed.id).eq('user_id',user.id)
-    setFixedExpenses(prev=>prev.filter(f=>f.id!==fixedId))
+    // Desativa a fixa no banco — sem tocar em despesas
+    await supabase.from('despesas_fixas').update({active:false}).eq('id',fixed.id).eq('user_id',user.id)
+    setFixedExpenses(prev=>prev.filter(f=>f.id!==fixed.id))
     setFixedMonthly(prev=>prev.filter(e=>e.id!==fixed.id))
-    notify('Despesa fixa removida','success');loadHistory();setDeletingFixed(null)
+    notify('Despesa fixa removida','success');setDeletingFixed(null)
   }
 
   const saveIncome=async(items)=>{
