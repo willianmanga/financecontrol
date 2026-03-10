@@ -322,27 +322,65 @@ export default function Dashboard({user}){
   },[user.id,month])
 
   const loadFixedExpenses=useCallback(async()=>{
-    // 1. Carrega todas as fixas ativas
+    // 1. Carrega fixas ativas
     const{data:fixedData}=await supabase.from('despesas_fixas').select('*').eq('user_id',user.id).eq('active',true).order('created_at',{ascending:true})
-    if(!fixedData){setFixedExpenses([]);setFixedMonthly([]);return}
+    if(!fixedData||fixedData.length===0){setFixedExpenses([]);setFixedMonthly([]);return}
     setFixedExpenses(fixedData)
 
-    // 2. LIMPEZA GLOBAL: para cada fixa, vincula TODAS as despesas com mesmo nome
-    // em qualquer mês que ainda estejam com fixed_id = NULL
-    // Isso corrige histórico de meses anteriores de uma vez só
-    for(const f of fixedData){
-      await supabase.from('despesas')
-        .update({fixed_id:f.id})
-        .eq('user_id',user.id)
-        .eq('name',f.name)
-        .is('fixed_id',null)
+    // 2. Carrega TODAS as despesas do usuário (todos os meses) para limpeza global
+    const{data:allDespesas}=await supabase.from('despesas').select('id,name,month,fixed_id').eq('user_id',user.id)
+    const all=allDespesas||[]
+
+    // 3. Para cada fixa, garante exatamente 1 instância por mês — sem duplicatas
+    // Estratégia: por mês, se já tem uma com fixed_id correto, mantém.
+    // Se tem uma com nome igual mas fixed_id errado/null, vincula e apaga extras.
+    const fixedNames=new Map(fixedData.map(f=>[f.name,f.id])) // name -> fixed_id
+
+    // Agrupa despesas por mês+nome
+    const byMonthName={}
+    for(const e of all){
+      const key=e.month+'||'+e.name
+      if(!byMonthName[key])byMonthName[key]=[]
+      byMonthName[key].push(e)
     }
 
-    // 3. Carrega despesas do mês atual após a limpeza
+    const toDelete=[]
+    const toLink=[] // {id, fixed_id}
+
+    for(const[key,rows] of Object.entries(byMonthName)){
+      const name=key.split('||')[1]
+      const fid=fixedNames.get(name)
+      if(!fid)continue // não é uma fixa conhecida, ignora
+
+      // Separa: a que já tem o fixed_id certo, e as outras
+      const correct=rows.find(e=>e.fixed_id===fid)
+      const others=rows.filter(e=>e.id!==(correct?.id))
+
+      if(correct){
+        // Já tem uma certa — apaga todas as outras deste mês+nome
+        toDelete.push(...others.map(e=>e.id))
+      } else {
+        // Nenhuma com fixed_id certo — pega a mais antiga, vincula, apaga resto
+        const sorted=[...rows].sort((a,b)=>a.id-b.id)
+        toLink.push({id:sorted[0].id,fixed_id:fid})
+        toDelete.push(...sorted.slice(1).map(e=>e.id))
+      }
+    }
+
+    // Apaga duplicatas
+    if(toDelete.length>0){
+      await supabase.from('despesas').delete().in('id',toDelete).eq('user_id',user.id)
+    }
+    // Vincula despesas manuais às fixas
+    for(const{id,fixed_id}of toLink){
+      await supabase.from('despesas').update({fixed_id}).eq('id',id).eq('user_id',user.id)
+    }
+
+    // 4. Carrega despesas do mês atual já limpas
     const{data:allMonth}=await supabase.from('despesas').select('*').eq('user_id',user.id).eq('month',month).order('created_at',{ascending:false})
     const monthExpenses=allMonth||[]
 
-    // 4. Verifica se esta fixa já tem instância no mês — se não, cria
+    // 5. Se alguma fixa ainda não tem instância no mês, cria
     const linkedIds=new Set(monthExpenses.filter(e=>e.fixed_id).map(e=>e.fixed_id))
     const toInsert=fixedData.filter(f=>!linkedIds.has(f.id))
     if(toInsert.length>0){
