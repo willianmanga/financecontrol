@@ -315,10 +315,7 @@ export default function Dashboard({user}){
   // ── LOADERS ──
   const loadExpenses=useCallback(async()=>{
     setLoading(true)
-    // 1. Apaga todas as linhas que foram injetadas automaticamente (fixed_id preenchido)
-    //    Isso resolve de vez as duplicatas históricas
-    await supabase.from('despesas').delete().eq('user_id',user.id).not('fixed_id','is',null)
-    // 2. Carrega só despesas variáveis (fixed_id null)
+    // Carrega despesas variáveis (fixed_id null) — fixas vivem em despesas_fixas, nunca em despesas
     const{data,error}=await supabase.from('despesas').select('*').eq('user_id',user.id).eq('month',month).is('fixed_id',null).order('created_at',{ascending:false})
     if(!error)setExpenses(data||[])
     else notify('Erro ao carregar despesas','error')
@@ -351,15 +348,42 @@ export default function Dashboard({user}){
   },[user.id,month])
 
   const loadHistory=useCallback(async()=>{
-    const{data}=await supabase.from('despesas').select('month,value,paid').eq('user_id',user.id)
-    if(!data)return
+    // Carrega despesas variáveis
+    const{data:varData}=await supabase.from('despesas').select('month,value,paid').eq('user_id',user.id)
+    // Carrega fixas ativas
+    const{data:fixedData}=await supabase.from('despesas_fixas').select('id,value,created_at').eq('user_id',user.id).eq('active',true)
+    // Carrega status de pagamento das fixas
+    const{data:statusData}=await supabase.from('despesas_fixas_status').select('fixed_id,month,paid,custom_value').eq('user_id',user.id)
+    const statusMap={}
+    if(statusData)statusData.forEach(s=>{if(!statusMap[s.month])statusMap[s.month]={};statusMap[s.month][s.fixed_id]={paid:s.paid,custom_value:s.custom_value}})
+    if(!varData)return
     const byMonth={}
-    data.forEach(e=>{
+    // Agrega variáveis
+    varData.forEach(e=>{
       if(!byMonth[e.month])byMonth[e.month]={total:0,paid:0,count:0}
       byMonth[e.month].total+=Number(e.value)
       if(e.paid)byMonth[e.month].paid+=Number(e.value)
       byMonth[e.month].count++
     })
+    // Agrega fixas por mês em que estariam visíveis
+    if(fixedData){
+      const allMonths=Object.keys(byMonth)
+      allMonths.forEach(m=>{
+        const[mNum,yNum]=m.split('/').map(Number)
+        const monthDate=new Date(yNum,mNum-1,1)
+        fixedData.forEach(f=>{
+          const c=new Date(f.created_at)
+          const fMonth=new Date(c.getFullYear(),c.getMonth(),1)
+          if(fMonth<=monthDate){
+            const s=statusMap[m]?.[f.id]
+            const val=s?.custom_value??Number(f.value)
+            byMonth[m].total+=val
+            if(s?.paid)byMonth[m].paid+=val
+            byMonth[m].count++
+          }
+        })
+      })
+    }
     const sorted=Object.entries(byMonth).map(([m,d])=>({month:m,label:monthLabel(m),income:totalIncome,...d})).sort((a,b)=>a.month.localeCompare(b.month))
     setHistory(sorted)
   },[user.id,totalIncome])
@@ -373,7 +397,12 @@ export default function Dashboard({user}){
   },[user.id,month])
 
   useEffect(()=>{
-    const run=async()=>{ loadExpenses(); loadFixedExpenses(); loadHistory(); loadIncome() }
+    const run=async()=>{
+      // Roda em paralelo — variáveis, fixas e receita são independentes
+      // loadHistory roda depois pois depende dos dados para exibir totais corretos
+      await Promise.all([loadExpenses(),loadFixedExpenses(),loadIncome()])
+      loadHistory()
+    }
     run()
   },[loadExpenses,loadFixedExpenses,loadHistory,loadIncome])
 
@@ -502,6 +531,7 @@ export default function Dashboard({user}){
     if(!window.confirm('Última confirmação: apagar minha conta e todos os dados?'))return
     notify('Excluindo conta...','loading',8000)
     try{
+      await supabase.from('despesas_fixas_status').delete().eq('user_id',user.id)
       await supabase.from('despesas').delete().eq('user_id',user.id)
       await supabase.from('receitas').delete().eq('user_id',user.id)
       await supabase.from('despesas_fixas').delete().eq('user_id',user.id)
