@@ -327,16 +327,15 @@ export default function Dashboard({user}){
 
   const loadFixedExpenses=useCallback(async()=>{
     // Lê despesas_fixas diretamente — sem injetar nada em despesas
-    // Status "pago por mês" salvo em fixas_status no localStorage
+    // Status "pago por mês" e valor customizado salvos em despesas_fixas_status no Supabase
     const{data:fixedData}=await supabase.from('despesas_fixas').select('*').eq('user_id',user.id).eq('active',true).order('created_at',{ascending:true})
     if(!fixedData||fixedData.length===0){setFixedExpenses([]);setFixedMonthly([]);return}
     setFixedExpenses(fixedData)
-    // Lê status pago do mês atual do localStorage
-    const statusKey='fixas_status_'+user.id
-    let allStatus={}
-    try{allStatus=JSON.parse(localStorage.getItem(statusKey)||'{}')}catch{}
-    const monthStatus=allStatus[month]||{}
-    // Monta objetos com paid por mês — só fixas criadas antes ou no mês atual
+    // Lê status do mês atual do Supabase
+    const{data:statusData}=await supabase.from('despesas_fixas_status').select('fixed_id,paid,custom_value').eq('user_id',user.id).eq('month',month)
+    const monthStatus={}
+    if(statusData)statusData.forEach(s=>{monthStatus[s.fixed_id]={paid:!!s.paid,custom_value:s.custom_value}})
+    // Monta objetos com paid/valor por mês — só fixas criadas antes ou no mês atual
     const[mNum,yNum]=month.split('/').map(Number)
     const monthDate=new Date(yNum,mNum-1,1)
     const visible=fixedData.filter(f=>{
@@ -344,7 +343,10 @@ export default function Dashboard({user}){
       const fMonth=new Date(c.getFullYear(),c.getMonth(),1)
       return fMonth<=monthDate
     })
-    const withStatus=visible.map(f=>({...f,paid:!!monthStatus[f.id],_isFixed:true}))
+    const withStatus=visible.map(f=>{
+      const s=monthStatus[f.id]
+      return{...f,paid:s?.paid||false,value:s?.custom_value??f.value,_isFixed:true}
+    })
     setFixedMonthly(withStatus)
   },[user.id,month])
 
@@ -376,21 +378,19 @@ export default function Dashboard({user}){
   },[loadExpenses,loadFixedExpenses,loadHistory,loadIncome])
 
   // ── ACTIONS ──
-  const saveFixedStatus=(fixedId,paid)=>{
-    const statusKey='fixas_status_'+user.id
-    let allStatus={}
-    try{allStatus=JSON.parse(localStorage.getItem(statusKey)||'{}')}catch{}
-    if(!allStatus[month])allStatus[month]={}
-    allStatus[month][fixedId]=paid
-    localStorage.setItem(statusKey,JSON.stringify(allStatus))
+  const saveFixedStatus=async(fixedId,paid)=>{
+    await supabase.from('despesas_fixas_status').upsert(
+      {user_id:user.id,fixed_id:fixedId,month,paid},
+      {onConflict:'user_id,fixed_id,month'}
+    )
   }
 
   const togglePaid=async(id,cur)=>{
     const isFixed=fixedMonthly.find(e=>e.id===id)
     if(isFixed){
-      // Fixa: salva status no localStorage (sem tocar em despesas)
+      // Fixa: salva status no Supabase (sincronizado entre dispositivos)
       setFixedMonthly(prev=>prev.map(e=>e.id===id?{...e,paid:!cur}:e))
-      saveFixedStatus(id,!cur)
+      await saveFixedStatus(id,!cur)
       notify(!cur?'✓ Marcado como pago':'Desmarcado','success')
       return
     }
@@ -447,26 +447,17 @@ export default function Dashboard({user}){
   }
 
   // Editar fixa: só neste mês (altera instância) ou a partir de agora (altera tabela fixas + instância)
-  // Status de valor mensal personalizado para fixas: salvo em localStorage
-  const getFixedMonthValue=(fixedId)=>{
-    try{
-      const overrides=JSON.parse(localStorage.getItem('fixas_value_'+user.id)||'{}')
-      return overrides[month]?.[fixedId]??null
-    }catch{return null}
-  }
-  const saveFixedMonthValue=(fixedId,value)=>{
-    try{
-      const key='fixas_value_'+user.id
-      const overrides=JSON.parse(localStorage.getItem(key)||'{}')
-      if(!overrides[month])overrides[month]={}
-      overrides[month][fixedId]=value
-      localStorage.setItem(key,JSON.stringify(overrides))
-    }catch{}
+  // Status de valor mensal personalizado para fixas: salvo em despesas_fixas_status no Supabase
+  const saveFixedMonthValue=async(fixedId,value)=>{
+    await supabase.from('despesas_fixas_status').upsert(
+      {user_id:user.id,fixed_id:fixedId,month,custom_value:value},
+      {onConflict:'user_id,fixed_id,month'}
+    )
   }
 
   const editFixedMonth=async(fixed,newValue)=>{
-    // Salva override de valor só para este mês no localStorage
-    saveFixedMonthValue(fixed.id,newValue)
+    // Salva override de valor só para este mês no Supabase
+    await saveFixedMonthValue(fixed.id,newValue)
     setFixedMonthly(prev=>prev.map(e=>e.id===fixed.id?{...e,value:newValue}:e))
     setEditingFixed(null);notify('Valor alterado só neste mês ✓','success')
   }
