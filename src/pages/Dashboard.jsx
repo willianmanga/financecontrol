@@ -176,17 +176,26 @@ function EditModal({expense,onSave,onClose,T}){
   </div>)
 }
 
-function DeleteModal({expense,onConfirm,onClose,T}){
+function DeleteModal({expense,onConfirm,onConfirmForward,onClose,T}){
+  const isInstallment=!!(onConfirmForward&&expense.parcela_grupo&&expense.parcelas_total>1)
   return(<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16,backdropFilter:'blur(8px)'}} onClick={onClose}>
     <div style={{background:T.bgCard,border:'1px solid rgba(244,63,94,0.3)',borderRadius:20,padding:'28px',width:'100%',maxWidth:380,boxShadow:'0 32px 80px rgba(0,0,0,0.5)'}} onClick={e=>e.stopPropagation()}>
       <div style={{fontSize:28,marginBottom:12,textAlign:'center'}}>🗑️</div>
-      <div style={{fontSize:16,fontWeight:800,marginBottom:8,textAlign:'center'}}>Excluir despesa?</div>
+      <div style={{fontSize:16,fontWeight:800,marginBottom:8,textAlign:'center'}}>{isInstallment?'Excluir parcela?':'Excluir despesa?'}</div>
       <div style={{fontSize:12,color:T.textMuted,textAlign:'center',marginBottom:6,fontFamily:"'JetBrains Mono',monospace"}}>{expense.name}</div>
       <div style={{fontSize:14,fontWeight:800,color:'#f43f5e',textAlign:'center',marginBottom:20,fontFamily:"'JetBrains Mono',monospace"}}>{fmt(expense.value)}</div>
-      <div style={{display:'flex',gap:10}}>
-        <button onClick={onClose} style={{flex:1,background:'transparent',border:`1px solid ${T.border}`,borderRadius:12,color:T.textMuted,padding:'11px',fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Cancelar</button>
-        <button onClick={onConfirm} style={{flex:1,background:'linear-gradient(135deg,#f43f5e,#e11d48)',border:'none',borderRadius:12,color:'#fff',padding:'11px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:'0 4px 14px rgba(244,63,94,0.3)'}}>Excluir ✕</button>
-      </div>
+      {isInstallment?(
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          <button onClick={onConfirm} style={{background:'linear-gradient(135deg,#f43f5e,#e11d48)',border:'none',borderRadius:12,color:'#fff',padding:'11px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:'0 4px 14px rgba(244,63,94,0.3)'}}>Só esta parcela ({expense.parcela_atual}/{expense.parcelas_total})</button>
+          <button onClick={onConfirmForward} style={{background:'rgba(244,63,94,0.1)',border:'1px solid rgba(244,63,94,0.35)',borderRadius:12,color:'#f43f5e',padding:'11px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Esta e as próximas</button>
+          <button onClick={onClose} style={{background:'transparent',border:`1px solid ${T.border}`,borderRadius:12,color:T.textMuted,padding:'11px',fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Cancelar</button>
+        </div>
+      ):(
+        <div style={{display:'flex',gap:10}}>
+          <button onClick={onClose} style={{flex:1,background:'transparent',border:`1px solid ${T.border}`,borderRadius:12,color:T.textMuted,padding:'11px',fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Cancelar</button>
+          <button onClick={onConfirm} style={{flex:1,background:'linear-gradient(135deg,#f43f5e,#e11d48)',border:'none',borderRadius:12,color:'#fff',padding:'11px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:'0 4px 14px rgba(244,63,94,0.3)'}}>Excluir ✕</button>
+        </div>
+      )}
     </div>
   </div>)
 }
@@ -224,8 +233,15 @@ function EditFixedValueModal({fixed,month,onSaveMonth,onSaveForward,onClose,T}){
   </div>)
 }
 
-function IncomePanel({incomeItems,onSave,onClose,T,isDark}){
+function IncomePanel({incomeItems,onSave,onClose,onCopyPrevious,T,isDark}){
   const[items,setItems]=useState(incomeItems.length>0?incomeItems.map(i=>({...i})):[{id:Date.now(),label:'Salário',value:''}])
+  const[copying,setCopying]=useState(false)
+  const handleCopy=async()=>{
+    setCopying(true)
+    const copied=await onCopyPrevious()
+    setCopying(false)
+    if(copied&&copied.length>0)setItems(copied)
+  }
   const addItem=()=>setItems(prev=>[...prev,{id:Date.now(),label:'',value:''}])
   const removeItem=id=>setItems(prev=>prev.filter(i=>i.id!==id))
   const updateItem=(id,field,val)=>setItems(prev=>prev.map(i=>i.id===id?{...i,[field]:val}:i))
@@ -240,6 +256,7 @@ function IncomePanel({incomeItems,onSave,onClose,T,isDark}){
       </div>))}
     </div>
     <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+      {incomeItems.length===0&&onCopyPrevious&&<button onClick={handleCopy} disabled={copying} style={{background:'rgba(99,102,241,0.1)',border:'1px solid rgba(99,102,241,0.3)',borderRadius:10,color:'#818cf8',padding:'8px 14px',fontSize:11,cursor:copying?'not-allowed':'pointer',fontFamily:'inherit',flex:1,minWidth:120,opacity:copying?0.6:1}}>{copying?'Buscando...':'📋 Copiar do mês anterior'}</button>}
       <button onClick={addItem} style={{background:T.glass,border:`1px solid ${T.border}`,borderRadius:10,color:T.textMuted,padding:'8px 14px',fontSize:11,cursor:'pointer',fontFamily:'inherit',flex:1,minWidth:120}}>+ Adicionar fonte</button>
       <button onClick={()=>onSave(items)} style={{background:'linear-gradient(135deg,#10b981,#059669)',border:'none',borderRadius:10,color:'#fff',padding:'8px 18px',fontWeight:700,fontSize:12,cursor:'pointer',fontFamily:'inherit',boxShadow:'0 4px 14px rgba(16,185,129,0.3)',flex:1,minWidth:100}}>Salvar ✓</button>
       <button onClick={onClose} style={{background:'transparent',border:`1px solid ${T.border}`,borderRadius:10,color:T.textMuted,padding:'8px 14px',fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>Fechar</button>
@@ -406,7 +423,7 @@ export default function Dashboard({user}){
         })
       })
     }
-    const sorted=Object.entries(byMonth).map(([m,d])=>({month:m,label:monthLabel(m),...d,income:incomeByMonth[m]||0})).sort((a,b)=>a.month.localeCompare(b.month))
+    const sorted=Object.entries(byMonth).map(([m,d])=>({month:m,label:monthLabel(m),...d,income:incomeByMonth[m]||0})).sort((a,b)=>{const[mA,yA]=a.month.split('/').map(Number);const[mB,yB]=b.month.split('/').map(Number);return yA!==yB?yA-yB:mA-mB})
     setHistory(sorted)
   },[user.id])
 
@@ -530,12 +547,43 @@ export default function Dashboard({user}){
     notify('Despesa removida','success');loadHistory();setDeletingExpense(null)
   }
 
+  // Exclui esta parcela e todas as seguintes do mesmo parcelamento
+  const removeInstallmentsForward=async(expense)=>{
+    setExpenses(prev=>prev.filter(e=>!(e.parcela_grupo===expense.parcela_grupo&&e.parcela_atual>=expense.parcela_atual)))
+    const{error}=await supabase.from('despesas').delete().eq('user_id',user.id).eq('parcela_grupo',expense.parcela_grupo).gte('parcela_atual',expense.parcela_atual)
+    if(error){notify('Erro ao remover parcelas','error');loadExpenses();return}
+    notify('Parcelas removidas','success');loadExpenses();loadHistory();setDeletingExpense(null)
+  }
+
   const deleteFixed=async(fixed)=>{
     // Desativa a fixa no banco — sem tocar em despesas
     await supabase.from('despesas_fixas').update({active:false}).eq('id',fixed.id).eq('user_id',user.id)
     setFixedExpenses(prev=>prev.filter(f=>f.id!==fixed.id))
     setFixedMonthly(prev=>prev.filter(e=>e.id!==fixed.id))
     notify('Despesa fixa removida','success');setDeletingFixed(null)
+  }
+
+  // Busca as receitas do mês anterior ao selecionado e devolve itens com novos IDs locais
+  const copyPreviousIncome=async()=>{
+    const[mNum,yNum]=month.split('/').map(Number)
+    const prevDate=new Date(yNum,mNum-2,1)
+    const prevMonth=`${String(prevDate.getMonth()+1).padStart(2,'0')}/${prevDate.getFullYear()}`
+    const{data,error}=await supabase.from('receitas').select('*').eq('user_id',user.id).eq('month',prevMonth).maybeSingle()
+    if(error){notify('Erro ao buscar mês anterior','error');return null}
+    let list=[]
+    if(data){
+      if(data.income_items){
+        try{const parsed=typeof data.income_items==='string'?JSON.parse(data.income_items):data.income_items;if(Array.isArray(parsed))list=parsed.map(i=>({label:i.label||'',value:String(i.value??'')}))}catch{list=[]}
+      }else{
+        if(data.salary)list.push({label:'Salário',value:String(data.salary)})
+        if(data.vtvr)list.push({label:'VT + VR',value:String(data.vtvr)})
+        if(data.commission)list.push({label:'Comissão',value:String(data.commission)})
+      }
+    }
+    if(list.length===0){notify(`Nenhuma receita em ${monthLabel(prevMonth)}`,'error');return null}
+    const base=Date.now()
+    notify(`Receitas de ${monthLabel(prevMonth)} copiadas — revise e salve`,'success')
+    return list.map((i,idx)=>({id:base+idx,label:i.label,value:i.value}))
   }
 
   const saveIncome=async(items)=>{
@@ -711,7 +759,7 @@ export default function Dashboard({user}){
         </div>
 
         <AlertBanner expenses={expenses} fixedExpenses={fixedMonthly} month={month} onGoToExpenses={()=>setTab('expenses')} T={T} isDark={isDark}/>
-        {showIncome&&<IncomePanel incomeItems={incomeItems} onSave={saveIncome} onClose={()=>setShowIncome(false)} T={T} isDark={isDark}/>}
+        {showIncome&&<IncomePanel incomeItems={incomeItems} onSave={saveIncome} onCopyPrevious={copyPreviousIncome} onClose={()=>setShowIncome(false)} T={T} isDark={isDark}/>}
 
         {loading?(<div style={{display:'flex',alignItems:'center',gap:12,padding:'60px 0',color:T.textMuted,fontSize:13,justifyContent:'center'}}>
           <div style={{width:18,height:18,border:`2px solid ${T.border}`,borderTopColor:'#6366f1',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>Carregando...
@@ -1047,7 +1095,7 @@ export default function Dashboard({user}){
     {isMobile&&<MobileNav tab={tab} setTab={setTab} T={T} isDark={isDark}/>}
 
     {editingExpense&&<EditModal expense={editingExpense} onSave={editExpense} onClose={()=>setEditingExpense(null)} T={T} isDark={isDark}/>}
-    {deletingExpense&&<DeleteModal expense={deletingExpense} onConfirm={()=>removeExpense(deletingExpense.id)} onClose={()=>setDeletingExpense(null)} T={T}/>}
+    {deletingExpense&&<DeleteModal expense={deletingExpense} onConfirm={()=>removeExpense(deletingExpense.id)} onConfirmForward={()=>removeInstallmentsForward(deletingExpense)} onClose={()=>setDeletingExpense(null)} T={T}/>}
     {editingFixed&&<EditFixedValueModal fixed={editingFixed} month={month} onSaveMonth={editFixedMonth} onSaveForward={editFixedForward} onClose={()=>setEditingFixed(null)} T={T}/>}
     {deletingFixed&&<DeleteModal expense={deletingFixed} onConfirm={()=>deleteFixed(deletingFixed)} onClose={()=>setDeletingFixed(null)} T={T}/>}
 
