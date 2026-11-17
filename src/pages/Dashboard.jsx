@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { jsPDF } from 'jspdf'
 import { supabase } from '../lib/supabase'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -354,16 +355,37 @@ export default function Dashboard({user}){
     const{data:fixedData}=await supabase.from('despesas_fixas').select('id,value,created_at').eq('user_id',user.id).eq('active',true)
     // Carrega status de pagamento das fixas
     const{data:statusData}=await supabase.from('despesas_fixas_status').select('fixed_id,month,paid,custom_value').eq('user_id',user.id)
+    // Carrega receitas de todos os meses (receita real por mês)
+    const{data:incomeData}=await supabase.from('receitas').select('month, income_items, salary, vtvr, commission').eq('user_id',user.id)
     const statusMap={}
     if(statusData)statusData.forEach(s=>{if(!statusMap[s.month])statusMap[s.month]={};statusMap[s.month][s.fixed_id]={paid:s.paid,custom_value:s.custom_value}})
     if(!varData)return
     const byMonth={}
+    // Receita real de cada mês (income_items JSON ou campos legados salary/vtvr/commission)
+    const incomeByMonth={}
+    if(incomeData)incomeData.forEach(r=>{
+      let total=0
+      let items=null
+      if(r.income_items){
+        try{items=typeof r.income_items==='string'?JSON.parse(r.income_items):r.income_items}catch{items=null}
+      }
+      if(Array.isArray(items)){
+        total=items.reduce((acc,i)=>acc+(parseFloat(i?.value)||0),0)
+      }else{
+        total=(Number(r.salary)||0)+(Number(r.vtvr)||0)+(Number(r.commission)||0)
+      }
+      incomeByMonth[r.month]=(incomeByMonth[r.month]||0)+total
+    })
     // Agrega variáveis
     varData.forEach(e=>{
       if(!byMonth[e.month])byMonth[e.month]={total:0,paid:0,count:0}
       byMonth[e.month].total+=Number(e.value)
       if(e.paid)byMonth[e.month].paid+=Number(e.value)
       byMonth[e.month].count++
+    })
+    // Garante que meses com apenas receitas (sem despesas variáveis) também apareçam
+    Object.keys(incomeByMonth).forEach(m=>{
+      if(!byMonth[m])byMonth[m]={total:0,paid:0,count:0}
     })
     // Agrega fixas por mês em que estariam visíveis
     if(fixedData){
@@ -384,9 +406,9 @@ export default function Dashboard({user}){
         })
       })
     }
-    const sorted=Object.entries(byMonth).map(([m,d])=>({month:m,label:monthLabel(m),income:totalIncome,...d})).sort((a,b)=>a.month.localeCompare(b.month))
+    const sorted=Object.entries(byMonth).map(([m,d])=>({month:m,label:monthLabel(m),...d,income:incomeByMonth[m]||0})).sort((a,b)=>a.month.localeCompare(b.month))
     setHistory(sorted)
-  },[user.id,totalIncome])
+  },[user.id])
 
   const loadIncome=useCallback(async()=>{
     const{data}=await supabase.from('receitas').select('*').eq('user_id',user.id).eq('month',month).single()
@@ -545,8 +567,7 @@ export default function Dashboard({user}){
   const exportPDF=async()=>{
     notify('Gerando PDF...','loading',5000)
     try{
-      await new Promise((res,rej)=>{if(window.jspdf){res();return};const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s)})
-      const{jsPDF}=window.jspdf,doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'})
+      const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'})
       const W=210,pad=16,monName=monthLabel(month)
       const allExp=[...fixedMonthly,...expenses]
       const paidList=allExp.filter(e=>e.paid),pendingList=allExp.filter(e=>!e.paid)

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import AuthPage from './pages/AuthPage'
 import Dashboard from './pages/Dashboard'
@@ -72,6 +72,12 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [emailConfirmed, setEmailConfirmed] = useState(false)
   const [isPasswordReset, setIsPasswordReset] = useState(false)
+  // Ref espelha o estado para o listener onAuthStateChange (evita closure obsoleta)
+  const isPasswordResetRef = useRef(false)
+  const updatePasswordReset = (value) => {
+    isPasswordResetRef.current = value
+    setIsPasswordReset(value)
+  }
 
   useEffect(() => {
     // Lê o hash ANTES de qualquer outra coisa
@@ -80,7 +86,7 @@ export default function App() {
     const type = params.get('type')
 
     if (type === 'recovery') {
-      setIsPasswordReset(true)
+      updatePasswordReset(true)
       // Não limpa o hash ainda — o Supabase precisa do token para criar a sessão
     } else if (type === 'signup') {
       setEmailConfirmed(true)
@@ -99,12 +105,12 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
-        setIsPasswordReset(true)
+        updatePasswordReset(true)
         setSession(session)
         setLoading(false)
       } else if (event === 'SIGNED_IN') {
         // Só redireciona pro dashboard se NÃO for reset de senha
-        if (!isPasswordReset) {
+        if (!isPasswordResetRef.current) {
           setEmailConfirmed(false)
           setSession(session)
         } else {
@@ -112,7 +118,7 @@ export default function App() {
         }
       } else if (event === 'SIGNED_OUT') {
         setSession(null)
-        setIsPasswordReset(false)
+        updatePasswordReset(false)
       } else {
         setSession(session)
       }
@@ -135,7 +141,7 @@ export default function App() {
   }
 
   if (isPasswordReset && session) {
-    return <ResetPasswordPage onDone={() => setIsPasswordReset(false)} />
+    return <ResetPasswordPage onDone={() => updatePasswordReset(false)} />
   }
 
   if (emailConfirmed && !session) {
