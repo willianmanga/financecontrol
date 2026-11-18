@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 import AuthPage from './pages/AuthPage'
 import Dashboard from './pages/Dashboard'
@@ -67,11 +67,95 @@ function ResetPasswordPage({ onDone }) {
   )
 }
 
+function buildCheckoutUrl(base, email) {
+  if (!base) return null
+  const sep = base.includes('?') ? '&' : '?'
+  return `${base}${sep}email=${encodeURIComponent(email || '')}`
+}
+
+function hasValidAccess(sub) {
+  return !!sub && (sub.status === 'trial' || sub.status === 'active') && new Date(sub.expires_at) > new Date()
+}
+
+function PaywallPage({ user, subscription, onRefresh }) {
+  const [checking, setChecking] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const openCheckout = (base) => {
+    const url = buildCheckoutUrl(base, user.email)
+    if (!url) { setMsg('Link de pagamento não configurado.'); return }
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  const handleRefresh = async () => {
+    setMsg(''); setChecking(true)
+    const ok = await onRefresh()
+    setChecking(false)
+    if (!ok) setMsg('Pagamento ainda não identificado. Aguarde alguns instantes e tente de novo.')
+  }
+
+  const wasTrial = !subscription || subscription.plan_type === 'trial'
+  const title = wasTrial ? 'Seu teste grátis terminou' : 'Sua assinatura não está ativa'
+  const subtitle = wasTrial
+    ? 'Escolha um plano para continuar controlando suas finanças com o Finly.'
+    : 'Renove seu plano para voltar a acessar o Finly.'
+
+  const planBtn = (highlight) => ({
+    width:'100%', textAlign:'left', cursor:'pointer', fontFamily:'inherit', borderRadius:14, padding:'16px 18px', marginBottom:12, position:'relative',
+    background: highlight ? 'linear-gradient(135deg,rgba(99,102,241,0.22),rgba(139,92,246,0.16))' : 'rgba(255,255,255,0.04)',
+    border: highlight ? '1px solid rgba(99,102,241,0.6)' : '1px solid rgba(255,255,255,0.08)',
+    color:'#e2e8f0', boxShadow: highlight ? '0 8px 28px rgba(99,102,241,0.25)' : 'none',
+  })
+
+  return (
+    <div style={{ minHeight:'100vh', background:'#050810', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Outfit',sans-serif", padding:20 }}>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} *{box-sizing:border-box} .plan-btn:hover{transform:translateY(-1px)}`}</style>
+      <div style={{ background:'rgba(10,14,26,0.97)', border:'1px solid rgba(99,102,241,0.25)', borderRadius:20, padding:'38px', width:'100%', maxWidth:440, boxShadow:'0 32px 80px rgba(0,0,0,0.5)', backdropFilter:'blur(20px)' }}>
+        <div style={{ textAlign:'center', marginBottom:26 }}>
+          <div style={{ fontSize:40, marginBottom:12 }}>🔒</div>
+          <div style={{ fontSize:20, fontWeight:800, color:'#e2e8f0', marginBottom:6 }}>{title}</div>
+          <div style={{ fontSize:12, color:'#475569', lineHeight:1.6 }}>{subtitle}</div>
+        </div>
+
+        <button className="plan-btn" onClick={() => openCheckout(import.meta.env.VITE_HOTMART_LINK_MONTHLY)} style={planBtn(false)}>
+          <div style={{ fontSize:11, letterSpacing:'1.5px', color:'#475569', fontFamily:'monospace', marginBottom:4 }}>PLANO MENSAL</div>
+          <div style={{ fontSize:22, fontWeight:800 }}>R$ 19,90<span style={{ fontSize:12, fontWeight:600, color:'#64748b' }}> /mês</span></div>
+        </button>
+
+        <button className="plan-btn" onClick={() => openCheckout(import.meta.env.VITE_HOTMART_LINK_YEARLY)} style={planBtn(true)}>
+          <span style={{ position:'absolute', top:-9, right:14, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#fff', fontSize:9, fontWeight:800, letterSpacing:'1px', padding:'3px 10px', borderRadius:20, fontFamily:'monospace' }}>MAIS ESCOLHIDO</span>
+          <div style={{ fontSize:11, letterSpacing:'1.5px', color:'#818cf8', fontFamily:'monospace', marginBottom:4 }}>PLANO ANUAL</div>
+          <div style={{ fontSize:22, fontWeight:800 }}>R$ 97,00<span style={{ fontSize:12, fontWeight:600, color:'#64748b' }}> /ano</span></div>
+        </button>
+
+        {msg && (
+          <div style={{ background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.3)', borderRadius:10, padding:'10px 14px', fontSize:12, color:'#fcd34d', margin:'4px 0 12px' }}>⚠ {msg}</div>
+        )}
+
+        <button onClick={handleRefresh} disabled={checking}
+          style={{ width:'100%', background:checking?'rgba(99,102,241,0.4)':'rgba(99,102,241,0.12)', border:'1px solid rgba(99,102,241,0.35)', borderRadius:12, color:'#a5b4fc', padding:'12px', fontWeight:700, fontSize:13, cursor:checking?'not-allowed':'pointer', fontFamily:'inherit', marginTop:4 }}>
+          {checking ? 'Verificando...' : 'Já paguei · Verificar acesso ↻'}
+        </button>
+
+        <button onClick={() => supabase.auth.signOut()}
+          style={{ width:'100%', background:'transparent', border:'1px solid rgba(244,63,94,0.25)', borderRadius:12, color:'#f43f5e', padding:'10px', fontWeight:700, fontSize:12, cursor:'pointer', fontFamily:'inherit', marginTop:10 }}>
+          Sair da conta
+        </button>
+
+        <div style={{ textAlign:'center', fontSize:10, color:'#2d3f5a', fontFamily:'monospace', marginTop:16, wordBreak:'break-all' }}>{user.email}</div>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [emailConfirmed, setEmailConfirmed] = useState(false)
   const [isPasswordReset, setIsPasswordReset] = useState(false)
+  const [sub, setSub] = useState(null)
+  const [subLoading, setSubLoading] = useState(false)
+  const [, setTick] = useState(0)
   // Ref espelha o estado para o listener onAuthStateChange (evita closure obsoleta)
   const isPasswordResetRef = useRef(false)
   const updatePasswordReset = (value) => {
@@ -128,7 +212,43 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  if (loading) {
+  // Consulta a assinatura (por user_id; se não achar, por e-mail)
+  const fetchSubscription = useCallback(async (user) => {
+    if (!user) return null
+    let { data } = await supabase.from('assinaturas').select('*').eq('user_id', user.id).maybeSingle()
+    if (!data && user.email) {
+      const res = await supabase.from('assinaturas').select('*').eq('email', user.email.toLowerCase()).order('id', { ascending: false }).limit(1).maybeSingle()
+      data = res.data
+    }
+    return data || null
+  }, [])
+
+  const recheckSubscription = useCallback(async () => {
+    const data = await fetchSubscription(session?.user)
+    setSub(data)
+    return hasValidAccess(data)
+  }, [fetchSubscription, session?.user?.id])
+
+  const userId = session?.user?.id
+  useEffect(() => {
+    if (!userId) { setSub(null); setSubLoading(false); return }
+    let cancelled = false
+    setSubLoading(true)
+    fetchSubscription(session.user).then((data) => {
+      if (cancelled) return
+      setSub(data)
+      setSubLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [userId])
+
+  // Re-renderiza a cada minuto para bloquear se o trial/plano vencer com o app aberto
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60000)
+    return () => clearInterval(id)
+  }, [])
+
+  if (loading || (session && subLoading)) {
     return (
       <div style={{ minHeight:'100vh', background:'#050810', display:'flex', alignItems:'center', justifyContent:'center' }}>
         <div style={{ textAlign:'center' }}>
@@ -160,5 +280,12 @@ export default function App() {
     )
   }
 
-  return session && !isPasswordReset ? <Dashboard user={session.user} /> : <AuthPage />
+  if (session && !isPasswordReset) {
+    if (!hasValidAccess(sub)) {
+      return <PaywallPage user={session.user} subscription={sub} onRefresh={recheckSubscription} />
+    }
+    return <Dashboard user={session.user} subscription={sub.status === 'trial' ? sub : null} />
+  }
+
+  return <AuthPage />
 }
