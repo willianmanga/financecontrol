@@ -299,7 +299,30 @@ function ExpenseRow({e,isFixed,isMobile,G,CAT_COLORS,fmt,onToggle,onEdit,onDelet
 // ─────────────────────────────────────────────
 // DASHBOARD PRINCIPAL
 // ─────────────────────────────────────────────
-export default function Dashboard({user}){
+function TrialNotice({subscription,T,isDark,user,compact}){
+  const[open,setOpen]=useState(false)
+  if(!subscription||subscription.status!=='trial')return null
+  const ms=new Date(subscription.expires_at)-new Date()
+  if(ms<=0)return null
+  const days=Math.ceil(ms/86400000)
+  const go=(base)=>{
+    if(!base)return
+    window.open(`${base}${base.includes('?')?'&':'?'}email=${encodeURIComponent(user.email||'')}`,'_blank','noopener,noreferrer')
+  }
+  const mini={flex:1,background:'rgba(99,102,241,0.12)',border:'1px solid rgba(99,102,241,0.3)',borderRadius:8,color:'#a5b4fc',padding:'6px 4px',fontSize:10,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}
+  return(<div style={{background:isDark?'rgba(245,158,11,0.08)':'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.25)',borderRadius:10,padding:compact?'8px 12px':'8px 11px',marginBottom:compact?14:10}}>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+      <div style={{fontSize:compact?12:11,fontWeight:700,color:isDark?'#fcd34d':'#b45309'}}>⏳ Teste grátis: {days} {days===1?'dia restante':'dias restantes'}</div>
+      <button onClick={()=>setOpen(v=>!v)} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,color:'#fff',padding:'4px 10px',fontSize:10,fontWeight:800,cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>Assinar</button>
+    </div>
+    {open&&(<div style={{display:'flex',gap:6,marginTop:8}}>
+      <button style={mini} onClick={()=>go(import.meta.env.VITE_HOTMART_LINK_MONTHLY)}>Mensal · R$ 19,90</button>
+      <button style={mini} onClick={()=>go(import.meta.env.VITE_HOTMART_LINK_YEARLY)}>Anual · R$ 97</button>
+    </div>)}
+  </div>)
+}
+
+export default function Dashboard({user,subscription}){
   const{mode,setMode,isDark,T}=useTheme()
   const isMobile=useIsMobile()
 
@@ -715,6 +738,7 @@ export default function Dashboard({user}){
       <div style={{fontSize:9,letterSpacing:'2px',color:T.textFaint,padding:'12px 18px 4px',fontFamily:"'JetBrains Mono',monospace"}}>NAVEGAÇÃO</div>
       {TABS.map(([k,ic,lb])=>(<div key={k} style={G.nav(tab===k)} onClick={()=>setTab(k)}><span style={{fontSize:14,opacity:tab===k?1:0.45}}>{ic}</span> {lb}</div>))}
       <div style={{marginTop:'auto',padding:'12px',borderTop:`1px solid ${T.border}`}}>
+        <TrialNotice subscription={subscription} T={T} isDark={isDark} user={user}/>
         <div style={{background:balance>=0?(isDark?'rgba(16,185,129,0.1)':'rgba(16,185,129,0.08)'):(isDark?'rgba(244,63,94,0.1)':'rgba(244,63,94,0.06)'),border:`1px solid ${balance>=0?'rgba(16,185,129,0.3)':'rgba(244,63,94,0.3)'}`,borderRadius:10,padding:'9px 12px',marginBottom:10}}>
           <div style={{fontSize:9,color:balance>=0?'#6ee7b7':'#fda4af',fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{balance>=0?'✓ NO AZUL':'⚠ DÉFICIT'}</div>
           <div style={{fontSize:15,fontWeight:800,color:balance>=0?'#10b981':'#f43f5e',fontFamily:"'JetBrains Mono',monospace"}}>{balance>=0?'':'-'}{fmt(Math.abs(balance))}</div>
@@ -745,6 +769,7 @@ export default function Dashboard({user}){
     </div>)}
 
     <main style={{...G.main,paddingTop:isMobile?'74px':'28px'}}>
+      {isMobile&&<TrialNotice subscription={subscription} T={T} isDark={isDark} user={user} compact/>}
 
       {/* ════ OVERVIEW ════ */}
       {tab==='overview'&&(<div style={{animation:'fadeUp .3s ease'}}>
