@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { jsPDF } from 'jspdf'
 import { supabase } from '../lib/supabase'
-import { isLandingOrigin, resolveCheckout, copyText } from '../lib/checkout'
+import { isLandingOrigin, getSelectedPlan, resolveCheckout, copyText } from '../lib/checkout'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -300,35 +301,79 @@ function ExpenseRow({e,isFixed,isMobile,G,CAT_COLORS,fmt,onToggle,onEdit,onDelet
 // ─────────────────────────────────────────────
 // DASHBOARD PRINCIPAL
 // ─────────────────────────────────────────────
+function TrialUpgradeModal({onClose,T,isDark,user}){
+  const[copied,setCopied]=useState(false)
+  // Origem 'landing' → checkout Asaas (sem ?email=); caso contrário → Hotmart com ?email=
+  const fromLanding=isLandingOrigin()
+  const preselected=getSelectedPlan()
+  const handleCopy=async()=>{
+    const ok=await copyText(user.email||'')
+    if(ok){setCopied(true);setTimeout(()=>setCopied(false),2500)}
+  }
+  const go=(plan)=>{
+    const{provider,url}=resolveCheckout(plan,user.email)
+    if(!url){alert('Link de pagamento não configurado.');return}
+    // window.open primeiro (dentro do gesto do usuário) para o Safari/iOS não bloquear a nova aba
+    window.open(url,'_blank','noopener,noreferrer')
+    if(provider==='asaas')handleCopy()
+  }
+  useEffect(()=>{
+    const onKey=(e)=>{if(e.key==='Escape')onClose()}
+    window.addEventListener('keydown',onKey)
+    return()=>window.removeEventListener('keydown',onKey)
+  },[onClose])
+  const planCard=(hl)=>({width:'100%',textAlign:'left',cursor:'pointer',fontFamily:'inherit',borderRadius:14,padding:'16px 18px',marginBottom:12,position:'relative',color:isDark?'#e2e8f0':'#0f172a',
+    background:hl?'linear-gradient(135deg,rgba(99,102,241,0.22),rgba(139,92,246,0.16))':(isDark?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.03)'),
+    border:hl?'1px solid rgba(99,102,241,0.6)':'1px solid '+(isDark?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.12)'),
+    boxShadow:hl?'0 8px 28px rgba(99,102,241,0.25)':'none'})
+  const hlYearly=preselected!=='monthly'
+  return createPortal(
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.72)',backdropFilter:'blur(6px)',WebkitBackdropFilter:'blur(6px)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:16,overflowY:'auto'}}>
+      <div role="dialog" aria-modal="true" onClick={e=>e.stopPropagation()} style={{background:isDark?'rgba(10,14,26,0.99)':'#fff',border:'1px solid rgba(99,102,241,0.3)',borderRadius:20,padding:'28px 22px',width:'100%',maxWidth:420,margin:'auto',boxShadow:'0 32px 80px rgba(0,0,0,0.55)',fontFamily:"'Outfit',sans-serif",color:isDark?'#e2e8f0':'#0f172a'}}>
+        <div style={{textAlign:'center',marginBottom:20}}>
+          <div style={{fontSize:34,marginBottom:8}}>🚀</div>
+          <div style={{fontSize:20,fontWeight:800,marginBottom:6}}>Escolha seu plano Finly</div>
+          <div style={{fontSize:13,color:T.textMuted,lineHeight:1.5}}>Continue com acesso ilimitado sem perder seus dados.</div>
+        </div>
+
+        {fromLanding&&(<div style={{background:'rgba(245,158,11,0.08)',border:'1px solid rgba(245,158,11,0.35)',borderRadius:14,padding:'13px 14px',marginBottom:16}}>
+          <div style={{fontSize:12,color:isDark?'#fcd34d':'#b45309',fontWeight:700,lineHeight:1.5,marginBottom:10}}>⚠ Use exatamente este e-mail no checkout para liberar seu acesso automaticamente.</div>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <div style={{flex:1,minWidth:0,background:isDark?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.04)',border:'1px solid '+(isDark?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.1)'),borderRadius:10,padding:'9px 12px',fontSize:12,fontFamily:"'JetBrains Mono',monospace",wordBreak:'break-all'}}>{user.email}</div>
+            <button onClick={handleCopy} style={{flexShrink:0,background:copied?'rgba(16,185,129,0.2)':'rgba(245,158,11,0.15)',border:copied?'1px solid rgba(16,185,129,0.5)':'1px solid rgba(245,158,11,0.45)',borderRadius:10,color:copied?'#10b981':(isDark?'#fcd34d':'#b45309'),padding:'9px 12px',fontWeight:800,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>{copied?'✓ Copiado':'Copiar e-mail'}</button>
+          </div>
+        </div>)}
+
+        <button onClick={()=>go('monthly')} style={planCard(!hlYearly)}>
+          <div style={{fontSize:11,letterSpacing:'1.5px',color:!hlYearly?'#818cf8':T.textMuted,fontFamily:"'JetBrains Mono',monospace",marginBottom:4}}>PLANO MENSAL</div>
+          <div style={{fontSize:22,fontWeight:800}}>R$ 19,90<span style={{fontSize:12,fontWeight:600,color:T.textMuted}}> /mês</span></div>
+        </button>
+        <button onClick={()=>go('yearly')} style={planCard(hlYearly)}>
+          <span style={{position:'absolute',top:-9,right:14,background:'linear-gradient(135deg,#6366f1,#8b5cf6)',color:'#fff',fontSize:9,fontWeight:800,letterSpacing:'1px',padding:'3px 10px',borderRadius:20,fontFamily:"'JetBrains Mono',monospace"}}>ECONOMIZE 59%</span>
+          <div style={{fontSize:11,letterSpacing:'1.5px',color:hlYearly?'#818cf8':T.textMuted,fontFamily:"'JetBrains Mono',monospace",marginBottom:4}}>PLANO ANUAL</div>
+          <div style={{fontSize:22,fontWeight:800}}>R$ 97,00<span style={{fontSize:12,fontWeight:600,color:T.textMuted}}> /ano</span></div>
+        </button>
+
+        <div style={{fontSize:11,color:T.textMuted,textAlign:'center',lineHeight:1.5,margin:'2px 0 14px'}}>Cancele quando quiser. Estorno de 100% em até 7 dias após a compra.</div>
+
+        <button onClick={()=>window.location.reload()} style={{width:'100%',background:'rgba(99,102,241,0.12)',border:'1px solid rgba(99,102,241,0.35)',borderRadius:12,color:isDark?'#a5b4fc':'#4338ca',padding:'12px',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Já paguei · Atualizar página ↻</button>
+        <button onClick={onClose} style={{width:'100%',background:'transparent',border:'1px solid '+T.border,borderRadius:12,color:T.textMuted,padding:'11px',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit',marginTop:10}}>Fechar</button>
+      </div>
+    </div>,document.body)
+}
+
 function TrialNotice({subscription,T,isDark,user,compact}){
   const[open,setOpen]=useState(false)
   if(!subscription||subscription.status!=='trial')return null
   const ms=new Date(subscription.expires_at)-new Date()
   if(ms<=0)return null
   const days=Math.ceil(ms/86400000)
-  // Origem 'landing' → checkout Asaas (sem ?email=); caso contrário → Hotmart com ?email=
-  const fromLanding=isLandingOrigin()
-  const go=(plan)=>{
-    const{provider,url}=resolveCheckout(plan,user.email)
-    if(!url)return
-    if(provider==='asaas')copyText(user.email||'')
-    window.open(url,'_blank','noopener,noreferrer')
-  }
-  const mini={flex:1,background:'rgba(99,102,241,0.12)',border:'1px solid rgba(99,102,241,0.3)',borderRadius:8,color:'#a5b4fc',padding:'6px 4px',fontSize:10,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}
   return(<div style={{background:isDark?'rgba(245,158,11,0.08)':'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.25)',borderRadius:10,padding:compact?'8px 12px':'8px 11px',marginBottom:compact?14:10}}>
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
       <div style={{fontSize:compact?12:11,fontWeight:700,color:isDark?'#fcd34d':'#b45309'}}>⏳ Teste grátis: {days} {days===1?'dia restante':'dias restantes'}</div>
-      <button onClick={()=>setOpen(v=>!v)} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,color:'#fff',padding:'4px 10px',fontSize:10,fontWeight:800,cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>Assinar</button>
+      <button onClick={()=>setOpen(true)} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,color:'#fff',padding:'4px 10px',fontSize:10,fontWeight:800,cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>Assinar</button>
     </div>
-    {open&&(<>
-      <div style={{display:'flex',gap:6,marginTop:8}}>
-        <button style={mini} onClick={()=>go('monthly')}>Mensal · R$ 19,90</button>
-        <button style={mini} onClick={()=>go('yearly')}>Anual · R$ 97</button>
-      </div>
-      {fromLanding&&(<div style={{fontSize:10,lineHeight:1.5,color:isDark?'#fcd34d':'#b45309',marginTop:8}}>
-        📋 Use exatamente o e-mail <strong style={{wordBreak:'break-all'}}>{user.email}</strong> no checkout para liberar seu acesso automaticamente (já copiamos para você).
-      </div>)}
-    </>)}
+    {open&&<TrialUpgradeModal onClose={()=>setOpen(false)} T={T} isDark={isDark} user={user}/>}
   </div>)
 }
 
@@ -735,7 +780,9 @@ export default function Dashboard({user,subscription,currentSub}){
     btn:(bg)=>({background:bg,border:'none',borderRadius:10,color:'#fff',padding:'9px 16px',fontWeight:700,fontSize:12,cursor:'pointer',fontFamily:'inherit',transition:'all .15s'}),
     fBtn:(a,c)=>({background:a?(c||'#6366f1')+'20':'transparent',border:`1px solid ${a?(c||'#6366f1')+'55':T.border}`,borderRadius:8,color:a?(c||'#818cf8'):T.textMuted,padding:'5px 11px',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all .15s'}),
   }
+  
   const TABS=[['overview','⊞','Visão Geral'],['expenses','≡','Despesas'],['charts','◉','Gráficos'],['history','◷','Histórico'],['privacy','🔒','Privacidade']]
+
 
   return(<div style={G.app}>
     <style>{`
@@ -1173,8 +1220,8 @@ export default function Dashboard({user,subscription,currentSub}){
         </div>
         <div style={{...G.sec(T.border),lineHeight:1.8}}>
           <div style={{fontSize:13,fontWeight:800,marginBottom:16,paddingBottom:10,borderBottom:'1px solid '+T.border}}>Política de Privacidade — Finly</div>
-          <div style={{fontSize:11,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",marginBottom:16,letterSpacing:'1px'}}>ÚLTIMA ATUALIZAÇÃO: MARÇO/2026</div>
-          {[['1. Quem somos','O Finly é um aplicativo de controle financeiro pessoal. Nosso objetivo é ajudar você a organizar suas finanças de forma simples e segura.'],['2. Dados que coletamos','Coletamos apenas o necessário: seu e-mail para autenticação e os dados financeiros que você cadastra. Não coletamos dados de pagamento ou informações sensíveis.'],['3. Como usamos seus dados','Seus dados são usados exclusivamente para exibir seu painel. Não vendemos, compartilhamos ou usamos para publicidade.'],['4. Segurança','Utilizamos o Supabase com Row Level Security (RLS) habilitado. Nenhum usuário acessa dados de outro. Comunicação via HTTPS.'],['5. Seus direitos (LGPD)','Você tem direito a acessar, corrigir e excluir seus dados permanentemente a qualquer momento pelo app.'],['6. Retenção de dados','Dados mantidos enquanto sua conta estiver ativa. Ao excluir a conta, todos os dados são removidos em até 24h.'],['7. Contato','Dúvidas: contato@finly.api.br']].map(([title,text])=>(<div key={title} style={{marginBottom:16}}>
+          <div style={{fontSize:11,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",marginBottom:16,letterSpacing:'1px'}}>ÚLTIMA ATUALIZAÇÃO: NOVEMBRO/2026</div>
+          {[['1. Quem somos','O Finly é um aplicativo de controle financeiro pessoal. Para fins da LGPD (Lei nº 13.709/2018), atuamos como controlador dos dados pessoais tratados no serviço.'],['2. Dados que coletamos','Cadastro: nome (quando informado), e-mail e senha (protegida pelo provedor de autenticação). No login com Google, recebemos nome e e-mail da sua conta. Dados financeiros: receitas, despesas, fixas e parcelas que você mesmo cadastra. Assinatura: e-mail, plano, status e validade. Não coletamos senhas bancárias, conexão com bancos nem dados de cartão de crédito.'],['3. Como usamos seus dados','Para autenticar seu acesso, exibir seu painel, gráficos e relatórios em PDF, liberar o teste grátis e a assinatura, prestar suporte e cumprir obrigações legais. Bases legais: execução de contrato, consentimento e obrigação legal. Não vendemos seus dados nem os usamos para publicidade.'],['4. Operadores e compartilhamento','Supabase (autenticação e banco de dados), Google (somente se você entrar com Google) e Asaas/Hotmart (pagamentos). Dados de cartão são tratados diretamente por Asaas e Hotmart; recebemos apenas a confirmação do pagamento e o e-mail do assinante. Esses operadores podem armazenar dados em servidores fora do Brasil, com salvaguardas previstas na LGPD.'],['5. Segurança','Row Level Security (RLS) habilitado: cada usuário acessa somente os próprios registros. Comunicação via HTTPS e autenticação segura (e-mail/senha ou Google OAuth). Em caso de incidente com risco relevante, comunicaremos os titulares afetados e a ANPD.'],['6. Retenção e direito de exclusão','Seus dados ficam guardados enquanto a conta estiver ativa. Você pode excluir sua conta a qualquer momento nesta aba, e seus dados financeiros são apagados permanentemente. Registros mínimos de pagamento e assinatura podem ser mantidos pelo prazo exigido por obrigações legais e fiscais.'],['7. Cancelamento e estorno','Sem fidelidade. Você cancela dentro do app, em Minha Assinatura. Se o cancelamento ocorrer em até 7 dias após a compra, o valor é estornado integralmente (100%) e o acesso é encerrado imediatamente. Após 7 dias, a renovação é cancelada e você continua usando até o fim do período já pago.'],['8. Seus direitos (LGPD)','Você pode solicitar acesso, correção, anonimização, bloqueio ou eliminação de dados, portabilidade, informação sobre compartilhamento e revogação do consentimento, além de peticionar à ANPD. Basta escrever para o e-mail de contato.'],['9. Armazenamento local','Usamos o armazenamento do navegador para manter sua sessão, o tema escolhido e o plano selecionado ao assinar. Não usamos cookies de publicidade ou rastreamento de terceiros.'],['10. Contato','Dúvidas ou solicitações sobre seus dados: contato@finly.api.br']].map(([title,text])=>(<div key={title} style={{marginBottom:16}}>
             <div style={{fontSize:12,fontWeight:800,marginBottom:4,color:T.text}}>{title}</div>
             <div style={{fontSize:12,color:T.textMuted,lineHeight:1.7}}>{text}</div>
           </div>))}
