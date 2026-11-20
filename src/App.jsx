@@ -3,7 +3,7 @@ import { supabase } from './lib/supabase'
 import AuthPage from './pages/AuthPage'
 import Dashboard from './pages/Dashboard'
 import LandingPage from './pages/LandingPage'
-import { captureOriginFromUrl, isLandingOrigin, getSelectedPlan, resolveCheckout, copyText } from './lib/checkout'
+import { captureOriginFromUrl, isLandingOrigin, getSelectedPlan, resolveCheckout, copyText, setDirectCheckout, isDirectCheckout, clearDirectCheckout } from './lib/checkout'
 
 // Acesso direto / afiliado: ?origem=hotmart grava a origem e pula a landing page
 const BOOT_FROM_HOTMART = captureOriginFromUrl()
@@ -76,7 +76,7 @@ function hasValidAccess(sub) {
   return !!sub && (sub.status === 'trial' || sub.status === 'active') && new Date(sub.expires_at) > new Date()
 }
 
-function PaywallPage({ user, subscription, onRefresh }) {
+function PaywallPage({ user, subscription, onRefresh, onSkipToTrial }) {
   const [checking, setChecking] = useState(false)
   const [msg, setMsg] = useState('')
   const [copied, setCopied] = useState(false)
@@ -106,10 +106,14 @@ function PaywallPage({ user, subscription, onRefresh }) {
   }
 
   const wasTrial = !subscription || subscription.plan_type === 'trial'
-  const title = wasTrial ? 'Seu teste grátis terminou' : 'Sua assinatura não está ativa'
-  const subtitle = wasTrial
-    ? 'Escolha um plano para continuar controlando suas finanças com o Finly.'
-    : 'Renove seu plano para voltar a acessar o Finly.'
+  // onSkipToTrial só existe no checkout direto (usuário ainda tem trial válido e escolheu assinar na landing)
+  const directCheckout = !!onSkipToTrial
+  const title = directCheckout ? 'Falta pouco para liberar seu acesso' : wasTrial ? 'Seu teste grátis terminou' : 'Sua assinatura não está ativa'
+  const subtitle = directCheckout
+    ? 'Finalize o pagamento do plano escolhido para começar a usar o Finly.'
+    : wasTrial
+      ? 'Escolha um plano para continuar controlando suas finanças com o Finly.'
+      : 'Renove seu plano para voltar a acessar o Finly.'
 
   // Destaque: plano escolhido na landing; sem escolha, mantém o anual em destaque
   const highlight = preselected || 'yearly'
@@ -178,6 +182,13 @@ function PaywallPage({ user, subscription, onRefresh }) {
           Sair da conta
         </button>
 
+        {onSkipToTrial && (
+          <button onClick={onSkipToTrial}
+            style={{ width:'100%', background:'transparent', border:'none', color:'#64748b', padding:'10px', fontWeight:600, fontSize:12, cursor:'pointer', fontFamily:'inherit', marginTop:6, textDecoration:'underline' }}>
+            Prefiro testar grátis por 7 dias antes
+          </button>
+        )}
+
         {!fromLanding && (
           <div style={{ textAlign:'center', fontSize:10, color:'#2d3f5a', fontFamily:'monospace', marginTop:16, wordBreak:'break-all' }}>{user.email}</div>
         )}
@@ -196,6 +207,7 @@ export default function App() {
   // null = mostra a landing page | 'login' | 'register' = mostra o AuthPage
   const [authMode, setAuthMode] = useState(BOOT_FROM_HOTMART ? 'login' : null)
   const [, setTick] = useState(0)
+  const [, setForceRender] = useState(0) // força re-render quando a flag de checkout direto (localStorage) muda
   // Ref espelha o estado para o listener onAuthStateChange (evita closure obsoleta)
   const isPasswordResetRef = useRef(false)
   const updatePasswordReset = (value) => {
@@ -282,6 +294,11 @@ export default function App() {
     return () => { cancelled = true }
   }, [userId])
 
+  // Assinatura ativa: o checkout direto foi concluído, limpa a flag
+  useEffect(() => {
+    if (sub?.status === 'active') { clearDirectCheckout() }
+  }, [sub?.status])
+
   // Re-renderiza a cada minuto para bloquear se o trial/plano vencer com o app aberto
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 60000)
@@ -324,12 +341,33 @@ export default function App() {
     if (!hasValidAccess(sub)) {
       return <PaywallPage user={session.user} subscription={sub} onRefresh={recheckSubscription} />
     }
+    // Veio de "Assinar Mensal/Anual": segura o Dashboard até o pagamento (ou até optar pelo trial)
+    if (isDirectCheckout() && sub?.status !== 'active') {
+      return (
+        <PaywallPage
+          user={session.user}
+          subscription={sub}
+          onRefresh={recheckSubscription}
+          onSkipToTrial={() => { clearDirectCheckout(); setForceRender((n) => n + 1) }}
+        />
+      )
+    }
     return <Dashboard user={session.user} subscription={sub.status === 'trial' ? sub : null} />
   }
 
   if (authMode) {
-    return <AuthPage key={authMode} initialMode={authMode} onBack={() => setAuthMode(null)} />
+    const planLabel = getSelectedPlan() === 'yearly' ? 'Anual' : getSelectedPlan() === 'monthly' ? 'Mensal' : null
+    const notice = isDirectCheckout() && planLabel
+      ? `Crie sua conta em 10 segundos para prosseguir para o pagamento do Plano ${planLabel}`
+      : null
+    return <AuthPage key={authMode} initialMode={authMode} notice={notice} onBack={() => setAuthMode(null)} />
   }
 
-  return <LandingPage onStart={(mode) => setAuthMode(mode)} />
+  return (
+    <LandingPage
+      onLogin={() => { clearDirectCheckout(); setAuthMode('login') }}
+      onStartTrial={() => { clearDirectCheckout(); setAuthMode('register') }}
+      onSelectPlan={() => { setDirectCheckout(true); setAuthMode('register') }}
+    />
+  )
 }
