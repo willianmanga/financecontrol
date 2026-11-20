@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#050810" />
+  <meta name="description" content="Política de Privacidade do Finly — como tratamos seus dados conforme a LGPD." />
+  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <title>Política de Privacidade — Finly</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:#050810;color:#cbd5e1;font-family:'Outfit',sans-serif;line-height:1.7;-webkit-font-smoothing:antialiased;
+      background-image:radial-gradient(circle at 8% -5%,rgba(99,102,241,.16),transparent 45%),radial-gradient(circle at 100% 30%,rgba(139,92,246,.1),transparent 40%);background-repeat:no-repeat}
+    .wrap{max-width:820px;margin:0 auto;padding:24px 16px 56px}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
+    .logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:20px;color:#e2e8f0;text-decoration:none;letter-spacing:-.5px}
+    .logo i{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:17px;box-shadow:0 4px 14px rgba(99,102,241,.45)}
+    .back{font-size:13px;font-weight:700;color:#818cf8;text-decoration:none;border:1px solid rgba(99,102,241,.35);border-radius:10px;padding:8px 14px;white-space:nowrap}
+    .back:hover{background:rgba(99,102,241,.12)}
+    .card{background:rgba(10,14,26,.97);border:1px solid rgba(99,102,241,.25);border-radius:20px;padding:36px 34px;box-shadow:0 32px 80px rgba(0,0,0,.5);position:relative}
+    .card::before{content:'';position:absolute;top:0;left:20%;right:20%;height:2px;background:linear-gradient(90deg,transparent,rgba(99,102,241,.8),transparent)}
+    .tag{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:2px;color:#818cf8;margin-bottom:10px}
+    h1{font-size:clamp(26px,5vw,36px);line-height:1.15;letter-spacing:-1px;font-weight:900;margin:0 0 8px;color:#e2e8f0}
+    .upd{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#64748b;margin:0 0 26px}
+    .intro{font-size:15.5px;margin:0 0 8px}
+    nav.toc{background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.2);border-radius:14px;padding:16px 20px;margin:22px 0 6px}
+    nav.toc b{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:1.8px;color:#818cf8;margin-bottom:8px;font-weight:500}
+    nav.toc ol{margin:0;padding-left:20px;columns:2;column-gap:28px;font-size:14px}
+    nav.toc a{color:#cbd5e1;text-decoration:none}
+    nav.toc a:hover{color:#a5b4fc}
+    h2{font-size:20px;font-weight:800;color:#e2e8f0;letter-spacing:-.3px;margin:34px 0 10px;padding-top:6px;scroll-margin-top:16px;display:flex;gap:10px;align-items:baseline}
+    h2 span{font-family:'JetBrains Mono',monospace;font-size:13px;color:#818cf8;font-weight:500}
+    p{margin:0 0 12px;font-size:15px}
+    ul{margin:0 0 12px;padding-left:22px;font-size:15px}
+    li{margin-bottom:6px}
+    li::marker{color:#818cf8}
+    strong{color:#e2e8f0;font-weight:600}
+    a{color:#a5b4fc}
+    .note{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);border-radius:12px;padding:12px 16px;font-size:14.5px;color:#a7f3d0;margin:0 0 14px}
+    .contact{background:linear-gradient(135deg,rgba(99,102,241,.16),rgba(139,92,246,.1));border:1px solid rgba(99,102,241,.4);border-radius:14px;padding:18px 20px;margin-top:8px}
+    .contact a{font-family:'JetBrains Mono',monospace;font-weight:700;word-break:break-all}
+    footer{text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#475569;margin-top:26px}
+    @media (max-width:560px){
+      .card{padding:26px 18px;border-radius:16px}
+      nav.toc ol{columns:1}
+      h2{font-size:18px}
+      p,ul{font-size:14.5px}
+    }
+    @media (max-width:380px){
+      .wrap{padding:16px 12px 40px}
+      .logo{font-size:18px}
+      .back{padding:7px 10px;font-size:12px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <a class="logo" href="/"><i>💰</i>Finly</a>
+      <a class="back" href="/">← Voltar ao início</a>
+    </div>
+
+    <main class="card">
+      <div class="tag">LGPD · LEI Nº 13.709/2018</div>
+      <h1>Política de Privacidade</h1>
+      <p class="upd">Última atualização: 19 de novembro de 2026</p>
+
+      <p class="intro">Esta política explica, de forma simples, quais dados o Finly coleta, para que os usa, como os protege e quais são os seus direitos, em conformidade com a Lei Geral de Proteção de Dados (LGPD).</p>
+      <div class="note">🔒 O Finly <strong>nunca</strong> pede senha de banco, nem conexão com sua conta bancária, nem dados de cartão de crédito para criar sua conta.</div>
+
+      <nav class="toc" aria-label="Sumário">
+        <b>SUMÁRIO</b>
+        <ol>
+          <li><a href="#quem-somos">Quem somos</a></li>
+          <li><a href="#dados">Dados coletados</a></li>
+          <li><a href="#uso">Uso dos dados</a></li>
+          <li><a href="#compartilhamento">Compartilhamento</a></li>
+          <li><a href="#seguranca">Segurança e RLS</a></li>
+          <li><a href="#retencao">Retenção e exclusão</a></li>
+          <li><a href="#direitos">Direitos do titular</a></li>
+          <li><a href="#cookies">Armazenamento local</a></li>
+          <li><a href="#alteracoes">Alterações</a></li>
+          <li><a href="#contato">Contato</a></li>
+        </ol>
+      </nav>
+
+      <h2 id="quem-somos"><span>01</span>Quem somos</h2>
+      <p>O <strong>Finly</strong> é um aplicativo web de controle financeiro pessoal, que permite registrar receitas, despesas fixas, parcelamentos e acompanhar o saldo mensal. Para fins da LGPD, o Finly atua como <strong>controlador</strong> dos dados pessoais tratados no serviço.</p>
+
+      <h2 id="dados"><span>02</span>Dados coletados</h2>
+      <p>Coletamos apenas o necessário para o funcionamento do serviço:</p>
+      <ul>
+        <li><strong>Dados de cadastro:</strong> nome (quando informado), e-mail e senha (armazenada de forma protegida pelo provedor de autenticação, nunca em texto aberto). No login com Google, recebemos nome e e-mail da sua conta Google, conforme sua autorização.</li>
+        <li><strong>Dados financeiros inseridos por você:</strong> receitas, despesas, despesas fixas, parcelas, categorias e valores que você mesmo lança no aplicativo.</li>
+        <li><strong>Dados de assinatura:</strong> e-mail, plano contratado (teste, mensal ou anual), status e data de validade do acesso.</li>
+        <li><strong>Preferências:</strong> como o tema (claro/escuro), guardadas no seu próprio navegador.</li>
+      </ul>
+      <p><strong>O que não coletamos:</strong> senhas ou dados de acesso bancário, números de cartão de crédito, extratos conectados automaticamente ou localização.</p>
+
+      <h2 id="uso"><span>03</span>Uso dos dados</h2>
+      <p>Seus dados são usados exclusivamente para:</p>
+      <ul>
+        <li>criar e manter sua conta e autenticar seu acesso;</li>
+        <li>exibir seu painel, gráficos, histórico mensal e gerar seus relatórios em PDF;</li>
+        <li>liberar e gerenciar seu período de teste e sua assinatura;</li>
+        <li>responder dúvidas e solicitações enviadas ao nosso suporte;</li>
+        <li>cumprir obrigações legais e proteger o serviço contra fraudes e uso indevido.</li>
+      </ul>
+      <p>As bases legais utilizadas são a <strong>execução de contrato</strong> (fornecer o serviço que você contratou), o <strong>consentimento</strong> (por exemplo, ao entrar com Google) e o <strong>cumprimento de obrigação legal</strong>. Não vendemos seus dados e não os usamos para publicidade de terceiros.</p>
+
+      <h2 id="compartilhamento"><span>04</span>Compartilhamento</h2>
+      <p>Seus dados financeiros não são compartilhados com terceiros para fins comerciais. Utilizamos apenas operadores essenciais ao serviço:</p>
+      <ul>
+        <li><strong>Supabase:</strong> autenticação e banco de dados do aplicativo.</li>
+        <li><strong>Google:</strong> somente se você escolher entrar com sua conta Google.</li>
+        <li><strong>Asaas e Hotmart:</strong> processamento dos pagamentos. Os dados de pagamento (como cartão) são tratados diretamente por essas plataformas, sob as políticas delas. Recebemos apenas a confirmação do pagamento e o e-mail do assinante para liberar seu acesso.</li>
+      </ul>
+      <p>Também poderemos compartilhar dados quando exigido por lei ou por ordem de autoridade competente.</p>
+
+      <h2 id="seguranca"><span>05</span>Segurança e RLS</h2>
+      <p>Adotamos medidas técnicas para proteger suas informações:</p>
+      <ul>
+        <li><strong>Row Level Security (RLS):</strong> o banco de dados aplica regras de segurança por linha, de modo que cada usuário acessa <strong>somente os próprios registros</strong>. Outro usuário não consegue ler suas receitas, despesas ou parcelas.</li>
+        <li><strong>Conexão criptografada</strong> (HTTPS) entre o seu dispositivo e o serviço.</li>
+        <li><strong>Autenticação segura</strong> com senha protegida e opção de login com Google (OAuth).</li>
+      </ul>
+      <p>Nenhum sistema é totalmente imune a riscos. Em caso de incidente de segurança que possa gerar risco relevante, comunicaremos os titulares afetados e a ANPD, conforme a LGPD.</p>
+
+      <h2 id="retencao"><span>06</span>Retenção e exclusão</h2>
+      <p>Mantemos seus dados enquanto sua conta estiver ativa. Você pode <strong>excluir sua conta</strong> e, com ela, seus dados financeiros pelo próprio aplicativo ou solicitando por e-mail. Alguns registros mínimos (como informações de pagamento e assinatura) podem ser guardados pelo prazo exigido por obrigações legais, fiscais ou para o exercício regular de direitos.</p>
+
+      <h2 id="direitos"><span>07</span>Direitos do titular</h2>
+      <p>Nos termos do art. 18 da LGPD, você pode solicitar a qualquer momento:</p>
+      <ul>
+        <li>confirmação da existência de tratamento e <strong>acesso</strong> aos seus dados;</li>
+        <li><strong>correção</strong> de dados incompletos, inexatos ou desatualizados;</li>
+        <li><strong>anonimização, bloqueio ou eliminação</strong> de dados desnecessários ou tratados em desconformidade;</li>
+        <li><strong>portabilidade</strong> dos dados, quando aplicável;</li>
+        <li><strong>eliminação</strong> dos dados tratados com base no seu consentimento;</li>
+        <li>informação sobre com quem compartilhamos seus dados;</li>
+        <li><strong>revogação do consentimento</strong> e informação sobre a possibilidade de não fornecê-lo;</li>
+        <li><strong>peticionar à ANPD</strong> (Autoridade Nacional de Proteção de Dados).</li>
+      </ul>
+      <p>Para exercer qualquer direito, escreva para o e-mail de contato abaixo. Responderemos dentro dos prazos previstos em lei.</p>
+
+      <h2 id="cookies"><span>08</span>Armazenamento local</h2>
+      <p>O Finly usa o armazenamento do navegador (localStorage e sessão de login) para manter você conectado, lembrar o tema escolhido e guardar a origem/plano selecionado ao assinar. Não utilizamos cookies de publicidade ou rastreamento de terceiros. Você pode limpar esses dados nas configurações do navegador, mas isso pode exigir novo login.</p>
+
+      <h2 id="alteracoes"><span>09</span>Alterações nesta política</h2>
+      <p>Podemos atualizar esta política para refletir mudanças no serviço ou na legislação. A data da última atualização fica sempre indicada no topo desta página. Mudanças relevantes serão comunicadas por meio do aplicativo ou por e-mail.</p>
+
+      <h2 id="contato"><span>10</span>Contato</h2>
+      <div class="contact">
+        <p style="margin:0 0 6px">Dúvidas, solicitações sobre seus dados ou exercício de direitos como titular:</p>
+        <a href="mailto:contato@finly.api.br">contato@finly.api.br</a>
+      </div>
+    </main>
+
+    <footer>© 2026 Finly — Controle Financeiro Pessoal</footer>
+  </div>
+</body>
+</html>
