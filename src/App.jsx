@@ -352,7 +352,7 @@ export default function App() {
         />
       )
     }
-    return <Dashboard user={session.user} subscription={sub.status === 'trial' ? sub : null} />
+    return <Dashboard user={session.user} subscription={sub.status === 'trial' ? sub : null} currentSub={sub} />
   }
 
   if (authMode) {
