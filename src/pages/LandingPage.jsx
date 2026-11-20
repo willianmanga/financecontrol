@@ -116,7 +116,7 @@ const FAQ = [
   { q: 'Funciona no iPhone e no Android?', a: 'Sim. O Finly funciona direto no navegador e pode ser instalado na tela inicial como um app (PWA). No iPhone: abra no Safari, toque em Compartilhar e em "Adicionar à Tela de Início". No Android: use o menu do Chrome e escolha "Instalar app".' },
   { q: 'Como funciona o teste grátis de 7 dias?', a: 'Ao criar sua conta, os 7 dias começam automaticamente, sem pedir cartão de crédito. Você usa todas as funcionalidades. Só decide por um plano se gostar.' },
   { q: 'O que acontece quando o teste termina?', a: 'O acesso é pausado até você escolher um plano (mensal ou anual). Nada é cobrado automaticamente, pois não pedimos cartão no cadastro.' },
-  { q: 'Como faço para cancelar?', a: `Sem fidelidade. Para cancelar, é só enviar um e-mail para ${CONTACT_EMAIL} e nós resolvemos. Se você assinou pela Hotmart, também pode cancelar direto por lá.` },
+  { q: 'Como faço para cancelar?', a: 'Sem fidelidade e sem burocracia. Você pode cancelar com 1 clique dentro do próprio aplicativo (na aba Privacidade / Minha Conta). Se o cancelamento for feito em até 7 dias após a compra, o estorno de 100% é processado automaticamente.' },
 ]
 
 /* ─────────────────────────────────────────────
