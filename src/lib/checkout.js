@@ -2,6 +2,7 @@
 
 const ORIGIN_KEY = 'finly_origin'
 const PLAN_KEY = 'finly_selected_plan'
+const DIRECT_KEY = 'finly_direct_checkout'
 
 function read(key) {
   try { return localStorage.getItem(key) } catch { return null }
@@ -23,6 +24,11 @@ export function getSelectedPlan() {
 }
 export const setSelectedPlan = (plan) => write(PLAN_KEY, plan === 'monthly' || plan === 'yearly' ? plan : null)
 
+// Checkout direto: o usuário clicou em "Assinar Mensal/Anual" na landing e deve ir ao pagamento antes do trial
+export const setDirectCheckout = (on) => write(DIRECT_KEY, on ? '1' : null)
+export const isDirectCheckout = () => read(DIRECT_KEY) === '1'
+export const clearDirectCheckout = () => write(DIRECT_KEY, null)
+
 // Lê ?origem=hotmart da URL, grava a origem e limpa o parâmetro. Retorna true se veio da Hotmart.
 export function captureOriginFromUrl() {
   try {
@@ -30,6 +36,7 @@ export function captureOriginFromUrl() {
     if (url.searchParams.get('origem') !== 'hotmart') return false
     setOrigin('hotmart')
     setSelectedPlan(null)
+    clearDirectCheckout()
     url.searchParams.delete('origem')
     window.history.replaceState(null, '', url.pathname + url.search + url.hash)
     return true
