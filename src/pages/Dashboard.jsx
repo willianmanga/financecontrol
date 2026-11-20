@@ -332,7 +332,7 @@ function TrialNotice({subscription,T,isDark,user,compact}){
   </div>)
 }
 
-export default function Dashboard({user,subscription}){
+export default function Dashboard({user,subscription,currentSub}){
   const{mode,setMode,isDark,T}=useTheme()
   const isMobile=useIsMobile()
 
@@ -629,6 +629,32 @@ export default function Dashboard({user,subscription}){
   }
 
   const signOut=async()=>{await supabase.auth.signOut()}
+  // ── ASSINATURA: cancelamento (estorno automático até 7 dias, via Edge Function) ──
+  const[cancelOpen,setCancelOpen]=useState(false)
+  const[cancelling,setCancelling]=useState(false)
+  const[cancelDone,setCancelDone]=useState(false)
+  const subStatus=currentSub?.status
+  const planStr=String(currentSub?.plan_type||'').toLowerCase()
+  const planName=/year|anual|annual/.test(planStr)?'Anual':/month|mensal/.test(planStr)?'Mensal':''
+  const subLabel=subStatus==='active'?(planName?`Plano ${planName} Ativo`:'Plano Ativo'):subStatus==='trial'?'Teste Grátis':'Sem assinatura ativa'
+  const subExpires=currentSub?.expires_at?new Date(currentSub.expires_at).toLocaleDateString('pt-BR'):null
+  const cancelSubscription=async()=>{
+    setCancelling(true)
+    try{
+      const{data,error}=await supabase.functions.invoke('cancel-subscription')
+      if(error)throw error
+      if(data?.error)throw new Error(data.error)
+      setCancelOpen(false)
+      notify(data?.message||'Cancelamento solicitado.','success',6000)
+      if(data?.refunded){setTimeout(()=>window.location.reload(),2500)}
+      else setCancelDone(true)
+    }catch(e){
+      console.error('Cancel error:',e)
+      notify('Não foi possível cancelar agora. Tente novamente ou fale com contato@finly.api.br.','error',6000)
+    }
+    setCancelling(false)
+  }
+
   const deleteAccount=async()=>{
     if(!window.confirm('Tem certeza? Todos os seus dados serão apagados permanentemente.'))return
     if(!window.confirm('Última confirmação: apagar minha conta e todos os dados?'))return
@@ -709,7 +735,7 @@ export default function Dashboard({user,subscription}){
     btn:(bg)=>({background:bg,border:'none',borderRadius:10,color:'#fff',padding:'9px 16px',fontWeight:700,fontSize:12,cursor:'pointer',fontFamily:'inherit',transition:'all .15s'}),
     fBtn:(a,c)=>({background:a?(c||'#6366f1')+'20':'transparent',border:`1px solid ${a?(c||'#6366f1')+'55':T.border}`,borderRadius:8,color:a?(c||'#818cf8'):T.textMuted,padding:'5px 11px',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all .15s'}),
   }
-  const TABS=[['overview','⊞','Visão Geral'],['expenses','≡','Despesas'],['charts','◉','Gráficos'],['history','◷','Histórico']]
+  const TABS=[['overview','⊞','Visão Geral'],['expenses','≡','Despesas'],['charts','◉','Gráficos'],['history','◷','Histórico'],['privacy','🔒','Privacidade']]
 
   return(<div style={G.app}>
     <style>{`
@@ -1106,6 +1132,35 @@ export default function Dashboard({user,subscription}){
       {tab==='privacy'&&(<div style={{animation:'fadeUp .3s ease',maxWidth:680}}>
         <div style={{fontSize:isMobile?20:24,fontWeight:800,letterSpacing:'-1px',marginBottom:3}}>Privacidade</div>
         <div style={{fontSize:11,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",marginBottom:20}}>LGPD · Política de Dados</div>
+        {cancelOpen&&(<div onClick={()=>!cancelling&&setCancelOpen(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',backdropFilter:'blur(6px)',zIndex:9998,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:isDark?'rgba(10,14,26,0.99)':'#fff',border:'1px solid rgba(244,63,94,0.3)',borderRadius:18,padding:'26px 22px',width:'100%',maxWidth:400,color:T.text,boxShadow:'0 24px 70px rgba(0,0,0,0.5)'}}>
+            <div style={{fontSize:32,textAlign:'center',marginBottom:8}}>⚠️</div>
+            <div style={{fontSize:16,fontWeight:800,marginBottom:10,textAlign:'center'}}>Cancelar assinatura?</div>
+            <div style={{fontSize:12.5,color:T.textMuted,lineHeight:1.7,marginBottom:20,textAlign:'center'}}>Se sua compra foi feita há menos de 7 dias, o valor será estornado automaticamente e o acesso encerrado agora. Após 7 dias, a renovação é cancelada e você continua usando até o vencimento.</div>
+            <div style={{display:'flex',gap:10}}>
+              <button disabled={cancelling} onClick={()=>setCancelOpen(false)} style={{flex:1,background:'transparent',border:'1px solid '+T.border,borderRadius:12,color:T.textMuted,padding:'11px',fontSize:13,fontWeight:700,cursor:cancelling?'not-allowed':'pointer',fontFamily:'inherit'}}>Manter plano</button>
+              <button disabled={cancelling} onClick={cancelSubscription} style={{flex:1,background:'linear-gradient(135deg,#f43f5e,#e11d48)',border:'none',borderRadius:12,color:'#fff',padding:'11px',fontSize:13,fontWeight:700,cursor:cancelling?'not-allowed':'pointer',fontFamily:'inherit',opacity:cancelling?0.6:1}}>{cancelling?'Cancelando...':'Confirmar cancelamento'}</button>
+            </div>
+          </div>
+        </div>)}
+
+        {/* Minha Assinatura */}
+        <div style={{...G.sec(T.border),marginBottom:20}}>
+          <div style={{fontSize:14,fontWeight:800,marginBottom:12}}>💳 Minha Assinatura</div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
+            <div>
+              <div style={{fontSize:9,letterSpacing:'2px',color:T.textMuted,fontFamily:"'JetBrains Mono',monospace",marginBottom:4}}>STATUS</div>
+              <div style={{fontSize:16,fontWeight:800,color:subStatus==='active'?'#10b981':subStatus==='trial'?'#f59e0b':T.textMuted}}>{subLabel}</div>
+              {subExpires&&(subStatus==='active'||subStatus==='trial')&&<div style={{fontSize:11,color:T.textMuted,marginTop:3}}>{cancelDone?'Acesso até ':subStatus==='trial'?'Teste até ':'Válido até '}{subExpires}</div>}
+            </div>
+            {subStatus==='active'&&!cancelDone&&(
+              <button onClick={()=>setCancelOpen(true)} style={{...G.btn('transparent'),color:'#f43f5e',border:'1px solid rgba(244,63,94,0.3)',fontSize:12}}>Cancelar assinatura</button>
+            )}
+          </div>
+          {cancelDone&&<div style={{fontSize:12,color:'#10b981',marginTop:12}}>✓ Renovação cancelada. Você continua usando até o vencimento.</div>}
+          {subStatus==='trial'&&<div style={{fontSize:11,color:T.textMuted,lineHeight:1.6,marginTop:12}}>Você está no período de teste gratuito. Nenhuma cobrança foi feita.</div>}
+        </div>
+
         <div style={{...G.sec('rgba(244,63,94,0.2)'),background:isDark?'rgba(244,63,94,0.05)':'rgba(244,63,94,0.03)',marginBottom:20}}>
           <div style={{display:'flex',alignItems:'flex-start',gap:14}}>
             <div style={{fontSize:24,flexShrink:0}}>⚠️</div>
