@@ -327,7 +327,7 @@ html{scroll-behavior:smooth}
 /* ─────────────────────────────────────────────
    LANDING PAGE
 ───────────────────────────────────────────── */
-export default function LandingPage({ onStart }) {
+export default function LandingPage({ onLogin, onStartTrial, onSelectPlan }) {
   const [scrolled, setScrolled] = useState(false)
   const [openFaq, setOpenFaq] = useState(0)
 
@@ -338,12 +338,14 @@ export default function LandingPage({ onStart }) {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  // Registra a origem (landing) e, se houver, o plano escolhido; depois abre o AuthPage
-  const go = (mode, plan = null) => {
+  // Todo CTA registra a origem (landing). Só os cards de plano guardam o plano escolhido.
+  const markLanding = (plan = null) => {
     setOrigin('landing')
     setSelectedPlan(plan)
-    onStart(mode)
   }
+  const goLogin = () => { markLanding(); onLogin() }           // "Entrar"
+  const goTrial = () => { markLanding(); onStartTrial() }      // "Testar 7 dias grátis" → cadastro + trial
+  const goPlan = (plan) => { markLanding(plan); onSelectPlan(plan) } // "Assinar Mensal/Anual" → cadastro + checkout
 
   return (
     <div className="lp">
@@ -365,8 +367,8 @@ export default function LandingPage({ onStart }) {
             <a href="#faq">Dúvidas</a>
           </div>
           <div className="lp-nav-actions">
-            <button className="lp-btn lp-btn-ghost" onClick={() => go('login')}>Entrar</button>
-            <button className="lp-btn lp-btn-primary" onClick={() => go('register')}>Testar 7 dias grátis</button>
+            <button className="lp-btn lp-btn-ghost" onClick={() => goLogin()}>Entrar</button>
+            <button className="lp-btn lp-btn-primary" onClick={() => goTrial()}>Testar 7 dias grátis</button>
           </div>
         </div>
       </nav>
@@ -381,7 +383,7 @@ export default function LandingPage({ onStart }) {
               O Finly mostra quanto entrou, quanto saiu e <b>quanto ainda falta pagar</b> — com despesas fixas e parcelas lançadas automaticamente todo mês.
             </p>
             <div className="lp-cta-row">
-              <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={() => go('register')}>Testar 7 dias grátis →</button>
+              <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={() => goTrial()}>Testar 7 dias grátis →</button>
               <span className="lp-cta-note">✓ Sem cartão de crédito no cadastro</span>
             </div>
             <div className="lp-trust">
@@ -455,7 +457,7 @@ export default function LandingPage({ onStart }) {
                 <li><span>✓</span>Relatório em PDF</li>
                 <li><span>✓</span>App instalável no celular</li>
               </ul>
-              <button className="lp-btn lp-btn-ghost" onClick={() => go('register', 'monthly')}>Assinar Mensal</button>
+              <button className="lp-btn lp-btn-ghost" onClick={() => goPlan('monthly')}>Assinar Mensal</button>
               <div className="lp-plan-foot">Comece com 7 dias grátis</div>
             </div>
 
@@ -470,7 +472,7 @@ export default function LandingPage({ onStart }) {
                 <li><span>✓</span>Relatório em PDF</li>
                 <li><span>✓</span>App instalável no celular</li>
               </ul>
-              <button className="lp-btn lp-btn-primary" onClick={() => go('register', 'yearly')}>Assinar Anual</button>
+              <button className="lp-btn lp-btn-primary" onClick={() => goPlan('yearly')}>Assinar Anual</button>
               <div className="lp-plan-foot">Comece com 7 dias grátis</div>
             </div>
           </div>
@@ -504,7 +506,7 @@ export default function LandingPage({ onStart }) {
         <div className="lp-final">
           <h2>Organize seu mês hoje mesmo</h2>
           <p>Crie sua conta em menos de 1 minuto e use o Finly por 7 dias, de graça.</p>
-          <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={() => go('register')}>Testar 7 dias grátis →</button>
+          <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={() => goTrial()}>Testar 7 dias grátis →</button>
         </div>
       </section>
 

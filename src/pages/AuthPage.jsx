@@ -9,7 +9,7 @@ function useTheme() {
   return { theme, setTheme, isDark }
 }
 
-export default function AuthPage({ initialMode = 'login', onBack }) {
+export default function AuthPage({ initialMode = 'login', onBack, notice = null }) {
   const [mode, setMode] = useState(initialMode) // login | register | forgot
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -116,6 +116,12 @@ export default function AuthPage({ initialMode = 'login', onBack }) {
           <div style={{ fontSize:22,fontWeight:800,letterSpacing:'-0.5px',color:T.text,marginBottom:4 }}>Finly</div>
           <div style={{ fontSize:11,color:T.textMuted,fontFamily:"'JetBrains Mono',monospace" }}>YOUR MONEY. YOUR CONTROL.</div>
         </div>
+
+        {notice && (
+          <div style={{ background:'rgba(99,102,241,0.12)',border:'1px solid rgba(99,102,241,0.4)',borderRadius:12,padding:'11px 14px',fontSize:12.5,lineHeight:1.5,color:isDark?'#c7d2fe':'#4338ca',marginBottom:18,textAlign:'center',fontWeight:600 }}>
+            💳 {notice}
+          </div>
+        )}
 
         {/* Tabs — só mostra quando não está no modo forgot */}
         {mode !== 'forgot' && (
