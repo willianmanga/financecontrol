@@ -2,6 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 import AuthPage from './pages/AuthPage'
 import Dashboard from './pages/Dashboard'
+import LandingPage from './pages/LandingPage'
+import { captureOriginFromUrl, isLandingOrigin, getSelectedPlan, resolveCheckout, copyText } from './lib/checkout'
+
+// Acesso direto / afiliado: ?origem=hotmart grava a origem e pula a landing page
+const BOOT_FROM_HOTMART = captureOriginFromUrl()
 
 function ResetPasswordPage({ onDone }) {
   const [password, setPassword] = useState('')
@@ -67,12 +72,6 @@ function ResetPasswordPage({ onDone }) {
   )
 }
 
-function buildCheckoutUrl(base, email) {
-  if (!base) return null
-  const sep = base.includes('?') ? '&' : '?'
-  return `${base}${sep}email=${encodeURIComponent(email || '')}`
-}
-
 function hasValidAccess(sub) {
   return !!sub && (sub.status === 'trial' || sub.status === 'active') && new Date(sub.expires_at) > new Date()
 }
@@ -80,11 +79,23 @@ function hasValidAccess(sub) {
 function PaywallPage({ user, subscription, onRefresh }) {
   const [checking, setChecking] = useState(false)
   const [msg, setMsg] = useState('')
+  const [copied, setCopied] = useState(false)
 
-  const openCheckout = (base) => {
-    const url = buildCheckoutUrl(base, user.email)
+  // Origem 'landing' → Asaas (precisa do e-mail digitado manualmente). Demais casos → Hotmart.
+  const fromLanding = isLandingOrigin()
+  const preselected = getSelectedPlan() // 'monthly' | 'yearly' | null
+
+  const handleCopy = async () => {
+    const ok = await copyText(user.email || '')
+    if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2500) }
+  }
+
+  const openCheckout = (plan) => {
+    const { provider, url } = resolveCheckout(plan, user.email)
     if (!url) { setMsg('Link de pagamento não configurado.'); return }
+    // window.open primeiro (ainda dentro do gesto do usuário) para o Safari/iOS não bloquear a nova aba
     window.open(url, '_blank', 'noopener,noreferrer')
+    if (provider === 'asaas') handleCopy() // deixa o e-mail copiado para colar no checkout
   }
 
   const handleRefresh = async () => {
@@ -100,12 +111,19 @@ function PaywallPage({ user, subscription, onRefresh }) {
     ? 'Escolha um plano para continuar controlando suas finanças com o Finly.'
     : 'Renove seu plano para voltar a acessar o Finly.'
 
-  const planBtn = (highlight) => ({
+  // Destaque: plano escolhido na landing; sem escolha, mantém o anual em destaque
+  const highlight = preselected || 'yearly'
+  const chosenOnLanding = fromLanding && !!preselected
+
+  const planBtn = (isHighlight) => ({
     width:'100%', textAlign:'left', cursor:'pointer', fontFamily:'inherit', borderRadius:14, padding:'16px 18px', marginBottom:12, position:'relative',
-    background: highlight ? 'linear-gradient(135deg,rgba(99,102,241,0.22),rgba(139,92,246,0.16))' : 'rgba(255,255,255,0.04)',
-    border: highlight ? '1px solid rgba(99,102,241,0.6)' : '1px solid rgba(255,255,255,0.08)',
-    color:'#e2e8f0', boxShadow: highlight ? '0 8px 28px rgba(99,102,241,0.25)' : 'none',
+    background: isHighlight ? 'linear-gradient(135deg,rgba(99,102,241,0.22),rgba(139,92,246,0.16))' : 'rgba(255,255,255,0.04)',
+    border: isHighlight ? '1px solid rgba(99,102,241,0.6)' : '1px solid rgba(255,255,255,0.08)',
+    color:'#e2e8f0', boxShadow: isHighlight ? '0 8px 28px rgba(99,102,241,0.25)' : 'none',
   })
+  const flag = (text) => (
+    <span style={{ position:'absolute', top:-9, right:14, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#fff', fontSize:9, fontWeight:800, letterSpacing:'1px', padding:'3px 10px', borderRadius:20, fontFamily:'monospace' }}>{text}</span>
+  )
 
   return (
     <div style={{ minHeight:'100vh', background:'#050810', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Outfit',sans-serif", padding:20 }}>
@@ -117,14 +135,32 @@ function PaywallPage({ user, subscription, onRefresh }) {
           <div style={{ fontSize:12, color:'#475569', lineHeight:1.6 }}>{subtitle}</div>
         </div>
 
-        <button className="plan-btn" onClick={() => openCheckout(import.meta.env.VITE_HOTMART_LINK_MONTHLY)} style={planBtn(false)}>
-          <div style={{ fontSize:11, letterSpacing:'1.5px', color:'#475569', fontFamily:'monospace', marginBottom:4 }}>PLANO MENSAL</div>
+        {fromLanding && (
+          <div style={{ background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.35)', borderRadius:14, padding:'14px 16px', marginBottom:18 }}>
+            <div style={{ fontSize:12, color:'#fcd34d', fontWeight:700, lineHeight:1.5, marginBottom:10 }}>
+              ⚠ Use exatamente este e-mail no checkout do Asaas para liberar seu acesso automaticamente.
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <div style={{ flex:1, minWidth:0, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:10, padding:'9px 12px', fontSize:12, color:'#e2e8f0', fontFamily:"'JetBrains Mono',monospace", wordBreak:'break-all' }}>
+                {user.email}
+              </div>
+              <button onClick={handleCopy}
+                style={{ flexShrink:0, background:copied?'rgba(16,185,129,0.2)':'rgba(245,158,11,0.15)', border:copied?'1px solid rgba(16,185,129,0.5)':'1px solid rgba(245,158,11,0.45)', borderRadius:10, color:copied?'#6ee7b7':'#fcd34d', padding:'9px 12px', fontWeight:800, fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>
+                {copied ? '✓ Copiado' : 'Copiar e-mail'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <button className="plan-btn" onClick={() => openCheckout('monthly')} style={planBtn(highlight === 'monthly')}>
+          {highlight === 'monthly' && chosenOnLanding && flag('SUA ESCOLHA')}
+          <div style={{ fontSize:11, letterSpacing:'1.5px', color:highlight === 'monthly' ? '#818cf8' : '#475569', fontFamily:'monospace', marginBottom:4 }}>PLANO MENSAL</div>
           <div style={{ fontSize:22, fontWeight:800 }}>R$ 19,90<span style={{ fontSize:12, fontWeight:600, color:'#64748b' }}> /mês</span></div>
         </button>
 
-        <button className="plan-btn" onClick={() => openCheckout(import.meta.env.VITE_HOTMART_LINK_YEARLY)} style={planBtn(true)}>
-          <span style={{ position:'absolute', top:-9, right:14, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#fff', fontSize:9, fontWeight:800, letterSpacing:'1px', padding:'3px 10px', borderRadius:20, fontFamily:'monospace' }}>MAIS ESCOLHIDO</span>
-          <div style={{ fontSize:11, letterSpacing:'1.5px', color:'#818cf8', fontFamily:'monospace', marginBottom:4 }}>PLANO ANUAL</div>
+        <button className="plan-btn" onClick={() => openCheckout('yearly')} style={planBtn(highlight === 'yearly')}>
+          {highlight === 'yearly' && flag(chosenOnLanding ? 'SUA ESCOLHA' : 'MAIS ESCOLHIDO')}
+          <div style={{ fontSize:11, letterSpacing:'1.5px', color:highlight === 'yearly' ? '#818cf8' : '#475569', fontFamily:'monospace', marginBottom:4 }}>PLANO ANUAL</div>
           <div style={{ fontSize:22, fontWeight:800 }}>R$ 97,00<span style={{ fontSize:12, fontWeight:600, color:'#64748b' }}> /ano</span></div>
         </button>
 
@@ -142,7 +178,9 @@ function PaywallPage({ user, subscription, onRefresh }) {
           Sair da conta
         </button>
 
-        <div style={{ textAlign:'center', fontSize:10, color:'#2d3f5a', fontFamily:'monospace', marginTop:16, wordBreak:'break-all' }}>{user.email}</div>
+        {!fromLanding && (
+          <div style={{ textAlign:'center', fontSize:10, color:'#2d3f5a', fontFamily:'monospace', marginTop:16, wordBreak:'break-all' }}>{user.email}</div>
+        )}
       </div>
     </div>
   )
@@ -155,6 +193,8 @@ export default function App() {
   const [isPasswordReset, setIsPasswordReset] = useState(false)
   const [sub, setSub] = useState(null)
   const [subLoading, setSubLoading] = useState(false)
+  // null = mostra a landing page | 'login' | 'register' = mostra o AuthPage
+  const [authMode, setAuthMode] = useState(BOOT_FROM_HOTMART ? 'login' : null)
   const [, setTick] = useState(0)
   // Ref espelha o estado para o listener onAuthStateChange (evita closure obsoleta)
   const isPasswordResetRef = useRef(false)
@@ -261,7 +301,7 @@ export default function App() {
   }
 
   if (isPasswordReset && session) {
-    return <ResetPasswordPage onDone={() => updatePasswordReset(false)} />
+    return <ResetPasswordPage onDone={() => { setAuthMode('login'); updatePasswordReset(false) }} />
   }
 
   if (emailConfirmed && !session) {
@@ -271,7 +311,7 @@ export default function App() {
           <div style={{ fontSize:48, marginBottom:16 }}>✅</div>
           <div style={{ fontSize:20, fontWeight:800, color:'#e2e8f0', marginBottom:8 }}>E-mail confirmado!</div>
           <div style={{ fontSize:13, color:'#475569', marginBottom:28, lineHeight:1.6 }}>Sua conta foi verificada. Agora é só fazer login!</div>
-          <button onClick={() => setEmailConfirmed(false)}
+          <button onClick={() => { setAuthMode('login'); setEmailConfirmed(false) }}
             style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:12, color:'#fff', padding:'13px 28px', fontWeight:800, fontSize:14, cursor:'pointer', fontFamily:'inherit', boxShadow:'0 6px 20px rgba(99,102,241,0.35)' }}>
             Fazer Login →
           </button>
@@ -287,5 +327,9 @@ export default function App() {
     return <Dashboard user={session.user} subscription={sub.status === 'trial' ? sub : null} />
   }
 
-  return <AuthPage />
+  if (authMode) {
+    return <AuthPage key={authMode} initialMode={authMode} onBack={() => setAuthMode(null)} />
+  }
+
+  return <LandingPage onStart={(mode) => setAuthMode(mode)} />
 }
