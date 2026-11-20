@@ -9,8 +9,8 @@ function useTheme() {
   return { theme, setTheme, isDark }
 }
 
-export default function AuthPage() {
-  const [mode, setMode] = useState('login') // login | register | forgot
+export default function AuthPage({ initialMode = 'login', onBack }) {
+  const [mode, setMode] = useState(initialMode) // login | register | forgot
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -89,6 +89,13 @@ export default function AuthPage() {
 
       <div style={{ position:'absolute',top:'-10%',left:'-5%',width:400,height:400,borderRadius:'50%',background:`radial-gradient(circle,rgba(99,102,241,0.1) 0%,transparent 70%)`,pointerEvents:'none' }} />
       <div style={{ position:'absolute',bottom:'-10%',right:'-5%',width:500,height:500,borderRadius:'50%',background:`radial-gradient(circle,rgba(139,92,246,0.08) 0%,transparent 70%)`,pointerEvents:'none' }} />
+
+      {onBack && (
+        <button onClick={onBack}
+          style={{ position:'fixed',top:16,left:16,background:T.themeBg,border:`1px solid ${T.themeBorder}`,borderRadius:12,padding:'9px 14px',zIndex:10,backdropFilter:'blur(10px)',color:T.text,cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit' }}>
+          ← Voltar para o início
+        </button>
+      )}
 
       {/* Theme toggle */}
       <div style={{ position:'fixed',top:16,right:16,display:'flex',gap:3,background:T.themeBg,border:`1px solid ${T.themeBorder}`,borderRadius:12,padding:4,zIndex:10,backdropFilter:'blur(10px)' }}>

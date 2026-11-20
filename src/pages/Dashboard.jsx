@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { jsPDF } from 'jspdf'
 import { supabase } from '../lib/supabase'
+import { isLandingOrigin, resolveCheckout, copyText } from '../lib/checkout'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -305,9 +306,13 @@ function TrialNotice({subscription,T,isDark,user,compact}){
   const ms=new Date(subscription.expires_at)-new Date()
   if(ms<=0)return null
   const days=Math.ceil(ms/86400000)
-  const go=(base)=>{
-    if(!base)return
-    window.open(`${base}${base.includes('?')?'&':'?'}email=${encodeURIComponent(user.email||'')}`,'_blank','noopener,noreferrer')
+  // Origem 'landing' → checkout Asaas (sem ?email=); caso contrário → Hotmart com ?email=
+  const fromLanding=isLandingOrigin()
+  const go=(plan)=>{
+    const{provider,url}=resolveCheckout(plan,user.email)
+    if(!url)return
+    if(provider==='asaas')copyText(user.email||'')
+    window.open(url,'_blank','noopener,noreferrer')
   }
   const mini={flex:1,background:'rgba(99,102,241,0.12)',border:'1px solid rgba(99,102,241,0.3)',borderRadius:8,color:'#a5b4fc',padding:'6px 4px',fontSize:10,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}
   return(<div style={{background:isDark?'rgba(245,158,11,0.08)':'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.25)',borderRadius:10,padding:compact?'8px 12px':'8px 11px',marginBottom:compact?14:10}}>
@@ -315,10 +320,15 @@ function TrialNotice({subscription,T,isDark,user,compact}){
       <div style={{fontSize:compact?12:11,fontWeight:700,color:isDark?'#fcd34d':'#b45309'}}>⏳ Teste grátis: {days} {days===1?'dia restante':'dias restantes'}</div>
       <button onClick={()=>setOpen(v=>!v)} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,color:'#fff',padding:'4px 10px',fontSize:10,fontWeight:800,cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>Assinar</button>
     </div>
-    {open&&(<div style={{display:'flex',gap:6,marginTop:8}}>
-      <button style={mini} onClick={()=>go(import.meta.env.VITE_HOTMART_LINK_MONTHLY)}>Mensal · R$ 19,90</button>
-      <button style={mini} onClick={()=>go(import.meta.env.VITE_HOTMART_LINK_YEARLY)}>Anual · R$ 97</button>
-    </div>)}
+    {open&&(<>
+      <div style={{display:'flex',gap:6,marginTop:8}}>
+        <button style={mini} onClick={()=>go('monthly')}>Mensal · R$ 19,90</button>
+        <button style={mini} onClick={()=>go('yearly')}>Anual · R$ 97</button>
+      </div>
+      {fromLanding&&(<div style={{fontSize:10,lineHeight:1.5,color:isDark?'#fcd34d':'#b45309',marginTop:8}}>
+        📋 Use exatamente o e-mail <strong style={{wordBreak:'break-all'}}>{user.email}</strong> no checkout para liberar seu acesso automaticamente (já copiamos para você).
+      </div>)}
+    </>)}
   </div>)
 }
 
